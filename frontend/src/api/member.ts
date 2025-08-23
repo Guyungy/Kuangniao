@@ -267,11 +267,8 @@ const MemberAPI = {
       method: 'patch',
       data: { status }
     }).then((response) => {
-      // 处理后端响应格式 { code: "00000", data: null }
-      if (response && response.code === '00000') {
-        return response;
-      }
-      throw new Error('切换会员状态响应格式错误');
+      // 响应拦截器已经处理了成功情况，这里直接返回
+      return response;
     }).catch((error) => {
       console.error('切换会员状态失败:', error);
       throw error;
