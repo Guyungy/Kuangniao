@@ -105,6 +105,9 @@ mysql -u root -p -e "CREATE DATABASE payboard_db CHARACTER SET utf8mb4 COLLATE u
 # Sync database schema
 cd backend
 npm run db:sync
+
+# Execute database update script (if needed)
+mysql -u root -p payboard_db < database_updates.sql
 ```
 
 ### Start Development Environment
@@ -245,6 +248,12 @@ npm run db:sync
 - `orders` - Order records table
 - `workers` - Worker information table
 - `users` - System users table
+
+### Database Update Script
+The project includes a merged database update script `database_updates.sql` with the following updates:
+- Add `account_name` field to `workers` table (account holder name)
+- Add recharge-related fields to `recharges` table (recharge number, operator info)
+- Add status management fields to `recharges` table (status, cancellation info)
 
 For detailed database design, please refer to: [Database Table Field Design](数据库表字段设计表.md)
 

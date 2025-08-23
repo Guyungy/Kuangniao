@@ -105,6 +105,9 @@ mysql -u root -p -e "CREATE DATABASE payboard_db CHARACTER SET utf8mb4 COLLATE u
 # 同步数据库表结构
 cd backend
 npm run db:sync
+
+# 执行数据库更新脚本（如果需要）
+mysql -u root -p payboard_db < database_updates.sql
 ```
 
 ### 启动开发环境
@@ -245,6 +248,12 @@ npm run db:sync
 - `orders` - 订单记录表
 - `workers` - 打手信息表
 - `users` - 系统用户表
+
+### 数据库更新脚本
+项目包含一个合并的数据库更新脚本 `database_updates.sql`，包含以下更新：
+- 为 `workers` 表添加 `account_name` 字段（开户姓名）
+- 为 `recharges` 表添加充值相关字段（充值编号、操作人信息）
+- 为 `recharges` 表添加状态管理字段（状态、取消信息）
 
 详细的数据库设计请参考：[数据库表字段设计表.md](数据库表字段设计表.md)
 
