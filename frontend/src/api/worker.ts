@@ -178,7 +178,9 @@ const WorkerAPI = {
       account_name: data.accountName, // 开户姓名
       price_hour: data.hourlyRate, // 小时费率
       type: '跑刀', // 默认类型
-      status: data.status || '待审核' // 状态转换
+      status: data.status || '可用', // 状态转换
+      level: data.level || 'A', // 级别
+      skills: data.skills || [] // 技能标签
     };
 
     console.log('打手创建API调用:', {
@@ -226,7 +228,9 @@ const WorkerAPI = {
       account_name: data.accountName, // 开户姓名
       price_hour: data.hourlyRate, // 小时费率
       type: '跑刀', // 默认类型
-      status: data.status || '待审核' // 状态转换
+      status: data.status || '可用', // 状态转换
+      level: data.level || 'A', // 级别
+      skills: data.skills || [] // 技能标签
     };
 
     return request({

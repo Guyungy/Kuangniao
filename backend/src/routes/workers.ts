@@ -301,6 +301,14 @@ router.post('/', [
     .optional()
     .isIn(Object.values(WorkerStatus))
     .withMessage('状态值无效'),
+  body('level')
+    .optional()
+    .isIn(['A', 'S', 'SSR', '魔王'])
+    .withMessage('级别值无效'),
+  body('skills')
+    .optional()
+    .isArray()
+    .withMessage('技能标签必须是数组格式'),
   body('remark')
     .optional()
     .isLength({ max: 255 })
@@ -336,6 +344,8 @@ router.post('/', [
       price_hour,
       type,
       status = WorkerStatus.AVAILABLE,
+      level = 'A',
+      skills = [],
       remark
     } = req.body;
 
@@ -386,6 +396,8 @@ router.post('/', [
       price_hour: parseFloat(price_hour),
       type,
       status,
+      level,
+      skills,
       remark
     });
 
@@ -451,6 +463,14 @@ router.put('/:id', [
     .optional()
     .isIn(Object.values(WorkerStatus))
     .withMessage('状态值无效'),
+  body('level')
+    .optional()
+    .isIn(['A', 'S', 'SSR', '魔王'])
+    .withMessage('级别值无效'),
+  body('skills')
+    .optional()
+    .isArray()
+    .withMessage('技能标签必须是数组格式'),
   body('remark')
     .optional()
     .isLength({ max: 255 })

@@ -82,8 +82,8 @@ const ReportAPI = {
     // 转换参数名称以匹配后端API，并过滤空值
     const backendParams: any = {};
     
-    // 只添加非空参数
-    if (params.type) backendParams.type = params.type;
+    // 确保type参数存在，默认为order
+    backendParams.type = params.type || 'order';
     if (params.period) backendParams.period = params.period;
     if (params.startDate && params.startDate.trim()) backendParams.start_date = params.startDate.trim();
     if (params.endDate && params.endDate.trim()) backendParams.end_date = params.endDate.trim();
@@ -118,8 +118,8 @@ const ReportAPI = {
     // 转换参数名称以匹配后端API，并过滤空值
     const backendParams: any = {};
     
-    // 只添加非空参数
-    if (params.type) backendParams.type = params.type;
+    // 确保type参数存在，默认为order
+    backendParams.type = params.type || 'order';
     if (params.startDate && params.startDate.trim()) backendParams.start_date = params.startDate.trim();
     if (params.endDate && params.endDate.trim()) backendParams.end_date = params.endDate.trim();
 
@@ -153,8 +153,8 @@ const ReportAPI = {
     // 转换参数名称以匹配后端API，并过滤空值
     const backendParams: any = {};
     
-    // 只添加非空参数
-    if (params.type) backendParams.type = params.type;
+    // 确保type参数存在，默认为consume
+    backendParams.type = params.type || 'consume';
     if (params.limit) backendParams.limit = params.limit;
     if (params.startDate && params.startDate.trim()) backendParams.start_date = params.startDate.trim();
     if (params.endDate && params.endDate.trim()) backendParams.end_date = params.endDate.trim();
@@ -189,8 +189,8 @@ const ReportAPI = {
     // 转换参数名称以匹配后端API，并过滤空值
     const backendParams: any = {};
     
-    // 只添加非空参数
-    if (params.type) backendParams.type = params.type;
+    // 确保type参数存在，默认为consume
+    backendParams.type = params.type || 'consume';
     if (params.limit) backendParams.limit = params.limit;
     if (params.startDate && params.startDate.trim()) backendParams.start_date = params.startDate.trim();
     if (params.endDate && params.endDate.trim()) backendParams.end_date = params.endDate.trim();
@@ -225,8 +225,8 @@ const ReportAPI = {
     // 转换参数名称以匹配后端API，并过滤空值
     const backendParams: any = {};
     
-    // 只添加非空参数
-    if (params.type) backendParams.type = params.type;
+    // 确保type参数存在，默认为order
+    backendParams.type = params.type || 'order';
     if (params.startDate && params.startDate.trim()) backendParams.start_date = params.startDate.trim();
     if (params.endDate && params.endDate.trim()) backendParams.end_date = params.endDate.trim();
 

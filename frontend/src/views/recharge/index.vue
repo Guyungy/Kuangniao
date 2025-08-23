@@ -13,7 +13,6 @@
         </el-form-item>
         <el-form-item label="支付方式" prop="payMethod">
           <el-select v-model="queryParams.payMethod" placeholder="请选择" clearable style="width: 120px">
-            <el-option label="余额" value="balance" />
             <el-option label="扫码" value="scan" />
           </el-select>
         </el-form-item>
@@ -192,7 +191,6 @@
           </el-form-item>
           <el-form-item label="支付方式" prop="payMethod">
             <el-radio-group v-model="formData.payMethod">
-              <el-radio value="balance">余额支付</el-radio>
               <el-radio value="scan">扫码支付</el-radio>
             </el-radio-group>
           </el-form-item>
@@ -319,7 +317,7 @@ const formData = reactive<RechargeForm>({
   id: undefined,
   memberId: '',
   amount: 0,
-  payMethod: 'qrcode',
+  payMethod: 'scan',
   remark: ''
 })
 
@@ -350,7 +348,6 @@ const rules: FormRules = {
 // 支付方式类型
 const getPaymentMethodType = (method: string): 'success' | 'primary' | 'warning' | 'info' | 'danger' => {
   const typeMap: Record<string, 'success' | 'primary' | 'warning' | 'info' | 'danger'> = {
-    balance: 'warning',
     scan: 'success',
     qrcode: 'success'
   }
@@ -360,7 +357,6 @@ const getPaymentMethodType = (method: string): 'success' | 'primary' | 'warning'
 // 支付方式文本
 const getPaymentMethodText = (method: string) => {
   const textMap: Record<string, string> = {
-    balance: '余额支付',
     scan: '扫码支付',
     qrcode: '扫码支付'
   }

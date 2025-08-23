@@ -293,14 +293,14 @@ defineOptions({
 // 响应式数据
 const trendChartRef = ref()
 const paymentChartRef = ref()
-const trendType = ref('order')
-const trendPeriod = ref('7')
-const memberRankingPeriod = ref('today')
-const workerRankingPeriod = ref('today')
-const statsDateRange = ref([])
-const memberRanking = ref([])
-const workerRanking = ref([])
-const statsData = ref([])
+const trendType = ref<'order' | 'recharge' | 'consume'>('order')
+const trendPeriod = ref<'7' | '30' | '90'>('7')
+const memberRankingPeriod = ref<'today' | 'week' | 'month'>('today')
+const workerRankingPeriod = ref<'today' | 'week' | 'month'>('today')
+const statsDateRange = ref<string[]>([])
+const memberRanking = ref<any[]>([])
+const workerRanking = ref<any[]>([])
+const statsData = ref<any[]>([])
 
 // 图表实例
 let trendChart: echarts.ECharts | null = null
@@ -330,8 +330,8 @@ const todayOverview = reactive({
 })
 
 // 排行榜类型
-const getRankingType = (index: number) => {
-  const types = ['danger', 'warning', 'success']
+const getRankingType = (index: number): 'danger' | 'warning' | 'success' | 'info' => {
+  const types: ('danger' | 'warning' | 'success' | 'info')[] = ['danger', 'warning', 'success']
   return types[index] || 'info'
 }
 
@@ -362,97 +362,183 @@ const loadTodayOverview = async () => {
 // 加载趋势数据
 const loadTrendData = async () => {
   try {
+    console.log('🔄 === 开始加载趋势数据 ===')
     const endDate = new Date()
     const startDate = new Date()
     startDate.setDate(endDate.getDate() - parseInt(trendPeriod.value))
     
-    const data = await ReportAPI.getTrendData({
+    const queryParams = {
       type: trendType.value, // 添加必需的type参数
-      period: trendPeriod.value + 'd', // 添加必需的period参数
+      period: (trendPeriod.value + 'd') as '7d' | '30d' | '90d', // 修复类型
       startDate: startDate.toISOString().split('T')[0],
       endDate: endDate.toISOString().split('T')[0]
+    }
+    
+    console.log('📊 趋势查询参数:', queryParams)
+    console.log('📅 时间范围:', {
+      startDate: startDate.toISOString(),
+      endDate: endDate.toISOString(),
+      startDateFormatted: startDate.toISOString().split('T')[0],
+      endDateFormatted: endDate.toISOString().split('T')[0]
     })
     
-    console.log('趋势数据:', data)
+    console.log('🚀 调用趋势数据API...')
+    const data = await ReportAPI.getTrendData(queryParams)
     
-    const dates = data.map(item => {
+    console.log('📥 趋势数据API响应:', data)
+    console.log('📊 响应数据类型:', typeof data)
+    console.log('📊 是否为数组:', Array.isArray(data))
+    console.log('📊 响应数据详情:', {
+      length: Array.isArray(data) ? data.length : 'N/A',
+      firstItem: Array.isArray(data) && data.length > 0 ? data[0] : 'N/A',
+      lastItem: Array.isArray(data) && data.length > 0 ? data[data.length - 1] : 'N/A'
+    })
+    
+    // 如果没有数据，创建默认的空数据
+    let chartData = data
+    if (!Array.isArray(data) || data.length === 0) {
+      console.log('⚠️ 趋势数据为空，创建默认空数据')
+      // 创建最近7天的空数据
+      const dates = []
+      const values = []
+      for (let i = 6; i >= 0; i--) {
+        const date = new Date()
+        date.setDate(date.getDate() - i)
+        dates.push(date.toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' }))
+        values.push(0)
+      }
+      chartData = dates.map((date, index) => ({
+        date: date,
+        orderCount: values[index],
+        rechargeAmount: values[index]
+      }))
+      console.log('📊 创建的默认数据:', chartData)
+    } else {
+      console.log('✅ 使用API返回的实际数据')
+    }
+    
+    console.log('🔄 处理图表数据...')
+    const dates = chartData.map((item: any, index: number) => {
+       console.log(`📅 处理第${index + 1}个日期项:`, item)
        const date = new Date(item.date)
-       return date.toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' })
+       const formattedDate = date.toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' })
+       console.log(`📅 日期转换: ${item.date} -> ${formattedDate}`)
+       return formattedDate
      })
-     const values = data.map(item => 
-       trendType.value === 'order' ? item.orderCount : item.rechargeAmount
-     )
+     const values = chartData.map((item: any, index: number) => {
+       const value = trendType.value === 'order' ? (item.orderCount || 0) : (item.rechargeAmount || 0)
+       console.log(`📊 处理第${index + 1}个数值项:`, { item, value, trendType: trendType.value })
+       return value
+     })
+     
+     console.log('📊 处理后的趋势数据:', { dates, values })
+     console.log('📊 数据统计:', {
+       datesCount: dates.length,
+       valuesCount: values.length,
+       maxValue: Math.max(...values),
+       minValue: Math.min(...values),
+       totalValue: values.reduce((sum, val) => sum + val, 0)
+     })
      
      nextTick(() => {
-    if (trendChart) {
-      trendChart.setOption({
-        title: {
-          text: trendType.value === 'order' ? '订单趋势' : '充值趋势',
-          left: 'center',
-          textStyle: { fontSize: 14 }
-        },
-        tooltip: {
-          trigger: 'axis',
-          formatter: (params: any) => {
-            const data = params[0]
-            return `${data.name}<br/>${data.seriesName}: ${trendType.value === 'order' ? data.value + '单' : '¥' + data.value}`
-          }
-        },
-        xAxis: {
-          type: 'category',
-          data: dates,
-          axisLabel: { fontSize: 12 }
-        },
-        yAxis: {
-          type: 'value',
-          axisLabel: { fontSize: 12 }
-        },
-        series: [{
-          name: trendType.value === 'order' ? '订单数量' : '充值金额',
-          type: 'line',
-          data: values,
-          smooth: true,
-          itemStyle: { color: '#409EFF' },
-          areaStyle: {
-            color: {
-              type: 'linear',
-              x: 0, y: 0, x2: 0, y2: 1,
-              colorStops: [
-                { offset: 0, color: 'rgba(64, 158, 255, 0.3)' },
-                { offset: 1, color: 'rgba(64, 158, 255, 0.1)' }
-              ]
+      if (trendChart) {
+        console.log('🎨 设置趋势图表选项...')
+        const chartOption = {
+          title: {
+            text: trendType.value === 'order' ? '订单趋势' : '充值趋势',
+            left: 'center',
+            textStyle: { fontSize: 14 }
+          },
+          tooltip: {
+            trigger: 'axis',
+            formatter: (params: any) => {
+              const data = params[0]
+              return `${data.name}<br/>${data.seriesName}: ${trendType.value === 'order' ? data.value + '单' : '¥' + data.value}`
             }
+          },
+          xAxis: {
+            type: 'category',
+            data: dates,
+            axisLabel: { fontSize: 12 }
+          },
+          yAxis: {
+            type: 'value',
+            axisLabel: { fontSize: 12 }
+          },
+          series: [{
+            name: trendType.value === 'order' ? '订单数量' : '充值金额',
+            type: 'line',
+            data: values,
+            smooth: true,
+            itemStyle: { color: '#409EFF' },
+            areaStyle: {
+              color: {
+                type: 'linear',
+                x: 0, y: 0, x2: 0, y2: 1,
+                colorStops: [
+                  { offset: 0, color: 'rgba(64, 158, 255, 0.3)' },
+                  { offset: 1, color: 'rgba(64, 158, 255, 0.1)' }
+                ]
+              }
+            }
+          }],
+          grid: {
+            left: '3%',
+            right: '4%',
+            bottom: '3%',
+            containLabel: true
           }
-        }],
-        grid: {
-          left: '3%',
-          right: '4%',
-          bottom: '3%',
-          containLabel: true
         }
-      })
-    }
-  })
+        
+        console.log('🎨 图表配置:', chartOption)
+        trendChart.setOption(chartOption)
+        console.log('✅ 趋势图表设置完成')
+      } else {
+        console.warn('⚠️ 趋势图表实例未找到')
+      }
+    })
   } catch (error) {
-    console.error('获取支付方式分布失败:', error)
-    ElMessage.error('获取支付方式分布失败')
+    console.error('❌ 获取趋势数据失败:', error)
+    console.error('❌ 错误详情:', {
+      message: error.message,
+      stack: error.stack,
+      name: error.name
+    })
+    ElMessage.error('获取趋势数据失败')
   }
 }
 
 // 加载支付方式分布
 const loadPaymentDistribution = async () => {
   try {
-    const { data } = await ReportAPI.getPayMethodStats({
+    console.log('开始加载支付方式分布数据...')
+    const data = await ReportAPI.getPayMethodStats({
       type: 'order' // 添加必需的type参数，默认查询订单支付方式
     })
-    const chartData = data.map(item => ({
-       value: item.percentage,
+    
+    console.log('支付方式分布API响应:', data)
+    
+    // 如果没有数据，创建默认的空数据
+    let chartData = data
+    if (!Array.isArray(data) || data.length === 0) {
+      console.warn('支付方式分布数据为空，创建默认空数据')
+      chartData = [
+        { method: 'balance', percentage: 0 },
+        { method: 'qrcode', percentage: 0 }
+      ]
+    }
+    
+    const processedData = chartData.map((item: any) => ({
+       value: item.percentage || 0,
        name: item.method === 'balance' ? '余额支付' : 
              item.method === 'qrcode' ? '扫码支付' : '混合支付'
      }))
      
+     console.log('处理后的支付方式数据:', processedData)
+     
      nextTick(() => {
       if (paymentChart) {
+        console.log('设置支付方式图表选项...')
         paymentChart.setOption({
           title: {
             text: '支付方式',
@@ -469,7 +555,7 @@ const loadPaymentDistribution = async () => {
             type: 'pie',
             radius: ['40%', '70%'],
             center: ['50%', '45%'],
-            data: chartData,
+            data: processedData,
             itemStyle: {
               borderRadius: 5,
               borderColor: '#fff',
@@ -488,6 +574,9 @@ const loadPaymentDistribution = async () => {
             }
           }]
         })
+        console.log('支付方式图表设置完成')
+      } else {
+        console.warn('支付方式图表实例未找到')
       }
     })
   } catch (error) {
@@ -499,6 +588,7 @@ const loadPaymentDistribution = async () => {
 // 加载会员排行榜
 const loadMemberRanking = async () => {
   try {
+    console.log('开始加载会员排行榜...')
     const period = memberRankingPeriod.value
     const endDate = new Date()
     const startDate = new Date()
@@ -511,30 +601,60 @@ const loadMemberRanking = async () => {
       startDate.setMonth(endDate.getMonth() - 1)
     }
     
-    const { data } = await ReportAPI.getMemberRanking({
+    console.log('会员排行榜查询参数:', {
+      type: 'consume',
+      startDate: startDate.toISOString().split('T')[0],
+      endDate: endDate.toISOString().split('T')[0],
+      limit: 10
+    })
+    
+    const data = await ReportAPI.getMemberRanking({
       type: 'consume', // 添加必需的type参数，查询消费排行榜
       startDate: startDate.toISOString().split('T')[0],
       endDate: endDate.toISOString().split('T')[0],
       limit: 10
     })
     
-    memberRanking.value = data.map(item => ({
-      id: item.memberId,
-      nickname: item.memberNickname,
-      phone: item.memberUsername,
-      avatar: '',
-      amount: item.totalConsume,
-      orderCount: item.orderCount
-    }))
+    console.log('会员排行榜API响应:', data)
+    console.log('数据类型:', typeof data)
+    console.log('是否为数组:', Array.isArray(data))
+    
+    // 如果没有数据，创建默认的空数据
+    if (!Array.isArray(data) || data.length === 0) {
+      console.warn('会员排行榜数据为空，创建默认空数据')
+      memberRanking.value = [
+        { id: 1, nickname: '暂无数据', phone: '-', avatar: '', amount: 0, orderCount: 0 }
+      ]
+    } else {
+      console.log('处理会员排行榜数据...')
+      memberRanking.value = data.map((item: any, index: number) => {
+        console.log(`处理第${index + 1}条数据:`, item)
+        return {
+          id: item.memberId || item.id || index + 1,
+          nickname: item.memberNickname || item.nickname || '未知用户',
+          phone: item.memberUsername || item.username || item.phone || '-',
+          avatar: '',
+          amount: item.totalConsume || item.total_amount || item.amount || 0,
+          orderCount: item.orderCount || item.order_count || 0
+        }
+      })
+    }
+    
+    console.log('最终会员排行榜数据:', memberRanking.value)
   } catch (error) {
     console.error('获取会员排行榜失败:', error)
     ElMessage.error('获取会员排行榜失败')
+    // 设置默认空数据
+    memberRanking.value = [
+      { id: 1, nickname: '加载失败', phone: '-', avatar: '', amount: 0, orderCount: 0 }
+    ]
   }
 }
 
 // 加载打手排行榜
 const loadWorkerRanking = async () => {
   try {
+    console.log('开始加载打手排行榜...')
     const period = workerRankingPeriod.value
     const endDate = new Date()
     const startDate = new Date()
@@ -547,29 +667,60 @@ const loadWorkerRanking = async () => {
       startDate.setMonth(endDate.getMonth() - 1)
     }
     
-    const { data } = await ReportAPI.getWorkerRanking({
+    console.log('打手排行榜查询参数:', {
+      type: 'consume',
       startDate: startDate.toISOString().split('T')[0],
       endDate: endDate.toISOString().split('T')[0],
       limit: 10
     })
     
-    workerRanking.value = data.map(item => ({
-      id: item.workerId,
-      nickname: item.workerNickname,
-      phone: item.workerUsername,
-      avatar: '',
-      earnings: item.totalIncome,
-      orderCount: item.orderCount
-    }))
+    const data = await ReportAPI.getWorkerRanking({
+      type: 'consume', // 添加必需的type参数，查询收入排行榜
+      startDate: startDate.toISOString().split('T')[0],
+      endDate: endDate.toISOString().split('T')[0],
+      limit: 10
+    })
+    
+    console.log('打手排行榜API响应:', data)
+    console.log('数据类型:', typeof data)
+    console.log('是否为数组:', Array.isArray(data))
+    
+    // 如果没有数据，创建默认的空数据
+    if (!Array.isArray(data) || data.length === 0) {
+      console.warn('打手排行榜数据为空，创建默认空数据')
+      workerRanking.value = [
+        { id: 1, nickname: '暂无数据', phone: '-', avatar: '', earnings: 0, orderCount: 0 }
+      ]
+    } else {
+      console.log('处理打手排行榜数据...')
+      workerRanking.value = data.map((item: any, index: number) => {
+        console.log(`处理第${index + 1}条数据:`, item)
+        return {
+          id: item.workerId || item.id || index + 1,
+          nickname: item.workerNickname || item.nickname || item.name || '未知打手',
+          phone: item.workerUsername || item.username || item.phone || '-',
+          avatar: '',
+          earnings: item.totalIncome || item.total_amount || item.earnings || 0,
+          orderCount: item.orderCount || item.order_count || 0
+        }
+      })
+    }
+    
+    console.log('最终打手排行榜数据:', workerRanking.value)
   } catch (error) {
     console.error('获取打手排行榜失败:', error)
     ElMessage.error('获取打手排行榜失败')
+    // 设置默认空数据
+    workerRanking.value = [
+      { id: 1, nickname: '加载失败', phone: '-', avatar: '', earnings: 0, orderCount: 0 }
+    ]
   }
 }
 
 // 加载统计数据
 const loadStatsData = async () => {
   try {
+    console.log('开始加载统计数据...')
     let startDate = ''
     let endDate = ''
     
@@ -585,27 +736,77 @@ const loadStatsData = async () => {
       endDate = end.toISOString().split('T')[0]
     }
     
-    const { data } = await ReportAPI.getDetailStats({
+    const data = await ReportAPI.getDetailStats({
+      type: 'order', // 添加必需的type参数，查询订单统计
       startDate,
       endDate
     })
     
-    statsData.value = data.list.map(item => ({
-      date: item.date,
-      orderCount: item.orderCount,
-      orderAmount: item.orderAmount,
-      rechargeCount: item.rechargeCount,
-      rechargeAmount: item.rechargeAmount,
-      newMembers: item.newMembers,
-      activeMembers: 0, // 需要从其他API获取
-      activeWorkers: item.newWorkers,
-      platformIncome: item.platformIncome,
-      balancePayment: item.balancePayAmount,
-      scanPayment: item.qrcodePayAmount
-    }))
+    console.log('统计数据API响应:', data)
+    
+    // 如果没有数据，创建默认的空数据
+    if (!data || !data.list || !Array.isArray(data.list) || data.list.length === 0) {
+      console.warn('统计数据为空，创建默认空数据')
+      // 创建最近7天的空数据
+      const defaultData = []
+      for (let i = 6; i >= 0; i--) {
+        const date = new Date()
+        date.setDate(date.getDate() - i)
+        defaultData.push({
+          date: date.toISOString().split('T')[0],
+          orderCount: 0,
+          orderAmount: 0,
+          rechargeCount: 0,
+          rechargeAmount: 0,
+          newMembers: 0,
+          activeMembers: 0,
+          activeWorkers: 0,
+          platformIncome: 0,
+          balancePayment: 0,
+          scanPayment: 0
+        })
+      }
+      statsData.value = defaultData
+    } else {
+      statsData.value = data.list.map((item: any) => ({
+        date: item.date,
+        orderCount: item.orderCount || 0,
+        orderAmount: item.orderAmount || 0,
+        rechargeCount: item.rechargeCount || 0,
+        rechargeAmount: item.rechargeAmount || 0,
+        newMembers: item.newMembers || 0,
+        activeMembers: item.activeMembers || 0,
+        activeWorkers: item.newWorkers || 0,
+        platformIncome: item.platformIncome || 0,
+        balancePayment: item.balancePayAmount || 0,
+        scanPayment: item.qrcodePayAmount || 0
+      }))
+    }
+    
+    console.log('统计数据:', statsData.value)
   } catch (error) {
     console.error('获取统计数据失败:', error)
     ElMessage.error('获取统计数据失败')
+    // 设置默认空数据
+    const defaultData = []
+    for (let i = 6; i >= 0; i--) {
+      const date = new Date()
+      date.setDate(date.getDate() - i)
+      defaultData.push({
+        date: date.toISOString().split('T')[0],
+        orderCount: 0,
+        orderAmount: 0,
+        rechargeCount: 0,
+        rechargeAmount: 0,
+        newMembers: 0,
+        activeMembers: 0,
+        activeWorkers: 0,
+        platformIncome: 0,
+        balancePayment: 0,
+        scanPayment: 0
+      })
+    }
+    statsData.value = defaultData
   }
 }
 
@@ -641,32 +842,51 @@ const handleExportStats = async () => {
 
 // 初始化图表
 const initCharts = () => {
-  nextTick(() => {
-    if (trendChartRef.value) {
-      trendChart = echarts.init(trendChartRef.value)
-      loadTrendData()
-    }
-    
-    if (paymentChartRef.value) {
-      paymentChart = echarts.init(paymentChartRef.value)
-      loadPaymentDistribution()
-    }
-    
-    // 监听窗口大小变化
-    window.addEventListener('resize', () => {
-      trendChart?.resize()
-      paymentChart?.resize()
+  // 延迟初始化，确保DOM完全渲染
+  setTimeout(() => {
+    nextTick(() => {
+      // 初始化趋势图表
+      if (trendChartRef.value) {
+        console.log('初始化趋势图表容器:', trendChartRef.value)
+        trendChart = echarts.init(trendChartRef.value)
+        loadTrendData()
+      } else {
+        console.warn('趋势图表容器未找到')
+      }
+      
+      // 初始化支付方式图表
+      if (paymentChartRef.value) {
+        console.log('初始化支付方式图表容器:', paymentChartRef.value)
+        paymentChart = echarts.init(paymentChartRef.value)
+        loadPaymentDistribution()
+      } else {
+        console.warn('支付方式图表容器未找到')
+      }
+      
+      // 监听窗口大小变化
+      window.addEventListener('resize', () => {
+        trendChart?.resize()
+        paymentChart?.resize()
+      })
     })
-  })
+  }, 100) // 延迟100ms确保DOM渲染完成
 }
 
 // 初始化
 onMounted(async () => {
+  console.log('页面挂载完成，开始初始化...')
+  
+  // 先加载数据
   await loadTodayOverview()
   await loadMemberRanking()
   await loadWorkerRanking()
   await loadStatsData()
-  initCharts()
+  
+  // 延迟初始化图表，确保所有数据都加载完成
+  setTimeout(() => {
+    console.log('开始初始化图表...')
+    initCharts()
+  }, 200)
 })
 </script>
 

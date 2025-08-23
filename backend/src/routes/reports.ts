@@ -74,7 +74,17 @@ router.get('/today-overview', async (req: Request, res: Response): Promise<void>
     // 总打手数
     const totalWorkers = await Worker.count();
 
-    res.json({
+    // 添加调试日志
+    console.log('📊 今日概览数据:', {
+      todayOrders: parseInt((todayOrders as any)?.count || '0'),
+      todayRecharge: parseInt((todayRecharges as any)?.count || '0'),
+      todayMembers: todayNewMembers,
+      todayWorkers: parseInt((activeWorkers[0] as any)?.count || '0'),
+      todayIncome: parseFloat((todayOrders as any)?.amount || '0')
+    });
+
+    // 强制发送200状态码，避免304
+    res.status(200).json({
       code: '00000',
       message: '获取今日概览成功',
       data: {
@@ -170,7 +180,18 @@ router.get('/trends', [
       });
     }
 
-    res.json({
+    // 添加调试日志
+    console.log('📊 趋势数据查询结果:', {
+      type,
+      period,
+      startDate: start.toISOString(),
+      endDate: end.toISOString(),
+      trendsCount: trends.length,
+      trends: trends.slice(0, 3) // 只显示前3条
+    });
+
+    // 强制发送200状态码，避免304
+    res.status(200).json({
       code: '00000',
       message: '获取趋势数据成功',
       data: trends.map((trend: any) => ({
@@ -202,7 +223,7 @@ router.get('/member-ranking', [
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       res.status(400).json({
-        code: 400,
+        code: 'B0001',
         message: '参数验证失败',
         data: null,
         errors: errors.array()
@@ -245,9 +266,9 @@ router.get('/member-ranking', [
         include: [{
           model: Member,
           as: 'member',
-          attributes: ['id', 'nickname', 'phone']
+          attributes: ['id', 'nickname', 'phone', 'username']
         }],
-        group: ['member_id', 'member.id'],
+        group: ['member_id', 'member.id', 'member.nickname', 'member.phone', 'member.username'],
         order: [[sequelize.fn('SUM', sequelize.col('price_final')), 'DESC']],
         limit,
         raw: false
@@ -264,9 +285,9 @@ router.get('/member-ranking', [
         include: [{
           model: Member,
           as: 'member',
-          attributes: ['id', 'nickname', 'phone']
+          attributes: ['id', 'nickname', 'phone', 'username']
         }],
-        group: ['member_id', 'member.id'],
+        group: ['member_id', 'member.id', 'member.nickname', 'member.phone', 'member.username'],
         order: [[sequelize.fn('SUM', sequelize.col('amount')), 'DESC']],
         limit,
         raw: false
@@ -289,12 +310,23 @@ router.get('/member-ranking', [
       };
     });
 
-    res.json({
+    // 添加调试日志
+    console.log('📊 会员排行榜数据:', {
+      type,
+      limit,
+      startDate,
+      endDate,
+      rankingCount: formattedRanking.length,
+      firstItem: formattedRanking[0]
+    });
+
+    // 强制发送200状态码，避免304
+    res.status(200).json({
       code: '00000',
       message: '获取会员排行榜成功',
       data: formattedRanking.map((item: any) => ({
         memberId: String(item.member.id),
-        memberUsername: item.member.phone || '',
+        memberUsername: item.member.username || item.member.phone || '',
         memberNickname: item.member.nickname || '',
         totalConsume: parseFloat(item.total_amount) || 0,
         orderCount: parseInt(item.order_count || item.recharge_count) || 0
@@ -320,7 +352,7 @@ router.get('/worker-ranking', [
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       res.status(400).json({
-        code: 400,
+        code: 'B0001',
         message: '参数验证失败',
         data: null,
         errors: errors.array()
@@ -360,7 +392,7 @@ router.get('/worker-ranking', [
         as: 'worker',
         attributes: ['id', 'name', 'real_name', 'type', 'price_hour']
       }],
-      group: ['worker_id', 'worker.id'],
+      group: ['worker_id', 'worker.id', 'worker.name', 'worker.real_name', 'worker.type', 'worker.price_hour'],
       order: [[sequelize.fn('SUM', sequelize.col('price_final')), 'DESC']],
       limit,
       raw: false
@@ -377,15 +409,26 @@ router.get('/worker-ranking', [
       };
     });
 
-    res.json({
+    // 添加调试日志
+    console.log('📊 打手排行榜数据:', {
+      limit,
+      startDate,
+      endDate,
+      rankingCount: formattedRanking.length,
+      firstItem: formattedRanking[0]
+    });
+
+    // 强制发送200状态码，避免304
+    res.status(200).json({
       code: '00000',
       message: '获取打手排行榜成功',
       data: formattedRanking.map((item: any) => ({
         workerId: String(item.worker.id),
-        workerUsername: item.worker.name || '',
-        workerNickname: item.worker.real_name || '',
+        workerName: item.worker.name || item.worker.real_name || '',
+        workerType: item.worker.type || '',
         totalIncome: parseFloat(item.total_amount) || 0,
-        orderCount: parseInt(item.order_count) || 0
+        orderCount: parseInt(item.order_count) || 0,
+        totalDuration: parseFloat(item.total_duration) || 0
       }))
     });
   } catch (error) {
@@ -408,7 +451,7 @@ router.get('/payment-stats', [
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       res.status(400).json({
-        code: 400,
+        code: 'B0001',
         message: '参数验证失败',
         data: null,
         errors: errors.array()
@@ -483,7 +526,19 @@ router.get('/payment-stats', [
       amount_percentage: total.amount > 0 ? (stat.amount / total.amount * 100).toFixed(2) : '0.00'
     }));
 
-    res.json({
+    // 添加调试日志
+    console.log('📊 支付方式统计数据:', {
+      type,
+      startDate,
+      endDate,
+      statsCount: statsWithPercentage.length,
+      totalCount: total.count,
+      totalAmount: total.amount,
+      firstStat: statsWithPercentage[0]
+    });
+
+    // 强制发送200状态码，避免304
+    res.status(200).json({
       code: '00000',
       message: '获取支付方式统计成功',
       data: statsWithPercentage.map((stat: any) => ({
@@ -512,7 +567,7 @@ router.get('/comprehensive', [
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       res.status(400).json({
-        code: 400,
+        code: 'B0001',
         message: '参数验证失败',
         data: null,
         errors: errors.array()
@@ -583,8 +638,31 @@ router.get('/comprehensive', [
       raw: true
     });
 
-    res.json({
-      code: 200,
+    // 添加调试日志
+    console.log('📊 综合统计数据:', {
+      startDate,
+      endDate,
+      orderStats: {
+        count: parseInt((orderStats as any)?.count || '0'),
+        amount: parseFloat((orderStats as any)?.amount || '0')
+      },
+      rechargeStats: {
+        count: parseInt((rechargeStats as any)?.count || '0'),
+        amount: parseFloat((rechargeStats as any)?.amount || '0')
+      },
+      memberStats: {
+        count: parseInt((memberStats as any)?.count || '0'),
+        totalBalance: parseFloat((memberStats as any)?.total_balance || '0')
+      },
+      workerStats: {
+        count: parseInt((workerStats as any)?.count || '0'),
+        avgPrice: parseFloat((workerStats as any)?.avg_price || '0')
+      }
+    });
+
+    // 强制发送200状态码，避免304
+    res.status(200).json({
+      code: '00000',
       message: '获取综合统计成功',
       data: {
         period: {

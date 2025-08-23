@@ -31,14 +31,15 @@ httpRequest.interceptors.request.use(
     }
 
     // 添加调试日志
-    console.log('=== 请求拦截器调试 ===');
+    console.log('🚀 === 请求拦截器调试 ===');
     console.log('请求URL:', config.url);
-    console.log('请求方法:', config.method);
+    console.log('请求方法:', config.method?.toUpperCase());
+    console.log('请求参数:', config.params);
+    console.log('请求头:', config.headers);
     console.log('Authorization头:', config.headers.Authorization);
     console.log('AccessToken:', accessToken);
     
     if (config.method === 'post' || config.method === 'put') {
-      console.log('请求头:', config.headers);
       console.log('请求数据:', config.data);
       console.log('请求数据类型:', typeof config.data);
     }
@@ -46,7 +47,7 @@ httpRequest.interceptors.request.use(
     return config;
   },
   (error) => {
-    console.error("Request interceptor error:", error);
+    console.error("❌ Request interceptor error:", error);
     return Promise.reject(error);
   }
 );
@@ -56,15 +57,55 @@ httpRequest.interceptors.request.use(
  */
 httpRequest.interceptors.response.use(
   (response: AxiosResponse<ApiResponse>): any => {
+    console.log('📥 === 响应拦截器调试 ===');
+    console.log('响应状态码:', response.status);
+    console.log('响应状态文本:', response.statusText);
+    console.log('响应头:', response.headers);
+    console.log('响应配置:', response.config);
+    console.log('完整响应对象:', response);
+    console.log('响应数据:', response.data);
+    console.log('响应数据类型:', typeof response.data);
+    
     // 如果响应是二进制流，则直接返回（用于文件下载、Excel 导出等）
     if (response.config.responseType === "blob") {
+      console.log('📁 二进制流响应，直接返回');
       return response;
+    }
+
+    // 处理304状态码 - 现在后端强制发送200，这里应该不会执行
+    if (response.status === 304) {
+      console.log('⚠️ 收到304响应，让axios正常处理响应');
+      console.log('304响应详情:', {
+        status: response.status,
+        statusText: response.statusText,
+        headers: response.headers,
+        data: response.data
+      });
+      // 对于304响应，我们不应该返回空数组，而是让axios正常处理
+      // 这样前端就能获取到缓存的数据
+      const { code, data, msg } = response.data;
+      
+      if (code === ResultEnum.SUCCESS || code === 200 || code === "00000") {
+        console.log('✅ 304响应中获取到缓存数据:', data);
+        return data;
+      }
+      
+      // 如果没有业务数据，返回空数组
+      console.log('⚠️ 304响应中没有业务数据，返回空数组');
+      return [];
     }
 
     const { code, data, msg } = response.data;
 
     // 请求成功 - 支持字符串和数字格式的响应码
     if (code === ResultEnum.SUCCESS || code === 200 || code === "00000") {
+      console.log('✅ 请求成功，返回数据:', data);
+      console.log('返回数据类型:', typeof data);
+      console.log('是否为数组:', Array.isArray(data));
+      if (Array.isArray(data)) {
+        console.log('数组长度:', data.length);
+        console.log('数组前3项:', data.slice(0, 3));
+      }
       return data; // 返回实际数据，而不是整个响应对象
     }
 
@@ -88,6 +129,8 @@ httpRequest.interceptors.response.use(
       friendlyMessage = "请求的资源不存在";
     }
     
+    console.log('❌ 业务错误:', friendlyMessage);
+    console.log('错误详情:', { code, msg, data });
     ElMessage.error(friendlyMessage);
     return Promise.reject(new Error(friendlyMessage));
   },

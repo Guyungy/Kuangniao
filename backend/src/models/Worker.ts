@@ -97,12 +97,28 @@ export class Worker extends Model {
   type!: WorkerType;
 
   @Column({
-    type: DataType.ENUM(...Object.values(WorkerStatus)),
+    type: DataType.STRING(20),
     allowNull: false,
     defaultValue: WorkerStatus.AVAILABLE,
     comment: '状态'
   })
   status!: WorkerStatus;
+
+  @Column({
+    type: DataType.STRING(20),
+    allowNull: true,
+    defaultValue: 'A',
+    comment: '打手级别：A、S、SSR、魔王'
+  })
+  level?: string;
+
+  @Column({
+    type: DataType.JSON,
+    allowNull: true,
+    defaultValue: [],
+    comment: '技能标签数组'
+  })
+  skills?: string[];
 
   @Column({
     type: DataType.STRING(255),

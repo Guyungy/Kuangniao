@@ -24,6 +24,8 @@ export interface OrderVO {
   amount: number;
   payMethod: string;
   createTime: string;
+  startTime?: string;
+  endTime?: string;
   remark?: string;
 }
 
@@ -77,6 +79,8 @@ function mapOrderFromBackend(item: any): OrderVO {
     amount: Number(item.price_final || item.amount || 0),
     payMethod: getPayMethodText(item.pay_method || item.payMethod || ''),
     createTime: item.created_at || item.createdAt || item.createTime || '',
+    startTime: item.start_time || item.startTime || '',
+    endTime: item.end_time || item.endTime || '',
     remark: item.remark || ''
   };
   
@@ -256,6 +260,51 @@ const OrderAPI = {
       console.log('计算价格API响应:', response);
       // 后端返回的是 { data: { price_final: number } }
       return { amount: response.data?.price_final || 0 };
+    });
+  },
+
+  /** 上钟 - 设置订单开始时间 */
+  startOrder(orderId: string, startTime?: string) {
+    return request<any, any>({
+      url: `${ORDER_BASE_URL}/${orderId}/start`,
+      method: 'post',
+      data: startTime ? { start_time: startTime } : {}
+    }).then(response => {
+      console.log('上钟API响应:', response);
+      return response;
+    }).catch((error) => {
+      console.error('上钟失败:', error);
+      throw error;
+    });
+  },
+
+  /** 下钟 - 设置订单结束时间 */
+  endOrder(orderId: string, endTime?: string) {
+    return request<any, any>({
+      url: `${ORDER_BASE_URL}/${orderId}/end`,
+      method: 'post',
+      data: endTime ? { end_time: endTime } : {}
+    }).then(response => {
+      console.log('下钟API响应:', response);
+      return response;
+    }).catch((error) => {
+      console.error('下钟失败:', error);
+      throw error;
+    });
+  },
+
+  /** 获取即将下钟的订单列表 */
+  getEndingSoonOrders(minutes: number = 10) {
+    return request<any, any>({
+      url: `${ORDER_BASE_URL}/ending-soon`,
+      method: 'get',
+      params: { minutes }
+    }).then(response => {
+      console.log('获取即将下钟订单API响应:', response);
+      return response;
+    }).catch((error) => {
+      console.error('获取即将下钟订单失败:', error);
+      throw error;
     });
   },
 

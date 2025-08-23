@@ -8,6 +8,13 @@ export enum PayMethod {
   MIXED = 'mixed'
 }
 
+export enum OrderStatus {
+  PENDING = 'pending',    // 待上钟
+  IN_SERVICE = 'in_service', // 服务中
+  COMPLETED = 'completed',   // 已完成
+  CANCELLED = 'cancelled'    // 已取消
+}
+
 @Table({
   tableName: 'orders',
   timestamps: true,
@@ -96,6 +103,28 @@ export class Order extends Model {
 
   @Column({
     type: DataType.DATE,
+    allowNull: true,
+    comment: '上钟时间（开始服务时间）'
+  })
+  start_time?: Date;
+
+  @Column({
+    type: DataType.DATE,
+    allowNull: true,
+    comment: '下钟时间（结束服务时间）'
+  })
+  end_time?: Date;
+
+  @Column({
+    type: DataType.ENUM(...Object.values(OrderStatus)),
+    allowNull: false,
+    defaultValue: OrderStatus.PENDING,
+    comment: '订单状态'
+  })
+  status!: OrderStatus;
+
+  @Column({
+    type: DataType.DATE,
     allowNull: false,
     defaultValue: DataType.NOW,
     comment: '下单时间'
@@ -137,6 +166,28 @@ export class Order extends Model {
     return methodMap[method] || method;
   }
 
+  // 静态方法：获取订单状态的中文描述
+  static getStatusText(status: OrderStatus): string {
+    const statusMap = {
+      [OrderStatus.PENDING]: '待上钟',
+      [OrderStatus.IN_SERVICE]: '服务中',
+      [OrderStatus.COMPLETED]: '已完成',
+      [OrderStatus.CANCELLED]: '已取消'
+    };
+    return statusMap[status] || status;
+  }
+
+  // 静态方法：获取订单状态的颜色
+  static getStatusColor(status: OrderStatus): string {
+    const colorMap = {
+      [OrderStatus.PENDING]: '#909399',    // 灰色
+      [OrderStatus.IN_SERVICE]: '#E6A23C', // 橙色
+      [OrderStatus.COMPLETED]: '#67C23A',  // 绿色
+      [OrderStatus.CANCELLED]: '#F56C6C'   // 红色
+    };
+    return colorMap[status] || '#909399';
+  }
+
   // 实例方法：验证支付金额
   validatePaymentAmounts(): boolean {
     const finalPrice = Number(this.price_final);
@@ -160,5 +211,56 @@ export class Order extends Model {
     const date = new Date(this.created_at);
     const dateStr = date.toISOString().slice(0, 10).replace(/-/g, '');
     return `ORD${dateStr}${this.id.toString().padStart(6, '0')}`;
+  }
+
+  // 实例方法：设置上钟时间
+  setStartTime(time?: Date): void {
+    this.start_time = time || new Date();
+    this.status = OrderStatus.IN_SERVICE;
+    this.updateEndTime();
+  }
+
+  // 实例方法：更新下钟时间（根据上钟时间和服务时长计算）
+  updateEndTime(): void {
+    if (this.start_time && this.duration) {
+      const endTime = new Date(this.start_time);
+      endTime.setHours(endTime.getHours() + Math.floor(this.duration));
+      endTime.setMinutes(endTime.getMinutes() + Math.round((this.duration % 1) * 60));
+      this.end_time = endTime;
+    }
+  }
+
+  // 实例方法：设置下钟时间
+  setEndTime(time?: Date): void {
+    this.end_time = time || new Date();
+    this.status = OrderStatus.COMPLETED;
+  }
+
+  // 实例方法：检查是否已上钟
+  isStarted(): boolean {
+    return this.status === OrderStatus.IN_SERVICE || this.status === OrderStatus.COMPLETED;
+  }
+
+  // 实例方法：检查是否已下钟
+  isEnded(): boolean {
+    return this.status === OrderStatus.COMPLETED;
+  }
+
+  // 实例方法：检查是否正在服务中
+  isInService(): boolean {
+    return this.status === OrderStatus.IN_SERVICE;
+  }
+
+  // 实例方法：检查是否待上钟
+  isPending(): boolean {
+    return this.status === OrderStatus.PENDING;
+  }
+
+  // 实例方法：获取剩余服务时间（分钟）
+  getRemainingTime(): number {
+    if (!this.start_time || !this.end_time) return 0;
+    const now = new Date();
+    const remaining = this.end_time.getTime() - now.getTime();
+    return Math.max(0, Math.floor(remaining / (1000 * 60)));
   }
 }

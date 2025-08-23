@@ -67,31 +67,41 @@
             </el-avatar>
           </template>
         </el-table-column>
-        <el-table-column label="基本信息" width="250">
+        <el-table-column label="基本信息" width="200">
           <template #default="scope">
             <div>
               <div class="flex items-center mb-1">
                 <span class="font-medium text-lg">{{ scope.row.nickname }}</span>
-                <el-tag 
-                  v-if="scope.row.level" 
-                  :type="getLevelType(scope.row.level)" 
-                  size="small" 
-                  class="ml-2"
-                >
-                  {{ scope.row.level }}
-                </el-tag>
               </div>
               <div class="text-gray-500 text-sm mb-1">{{ scope.row.phone }}</div>
-              <div class="flex flex-wrap gap-1">
-                <el-tag 
-                  v-for="skill in scope.row.skills" 
-                  :key="skill" 
-                  type="info" 
-                  size="small"
-                >
-                  {{ skill }}
-                </el-tag>
-              </div>
+              <div class="text-gray-500 text-sm">{{ scope.row.realName }}</div>
+            </div>
+          </template>
+        </el-table-column>
+        <el-table-column label="级别" width="80" align="center">
+          <template #default="scope">
+            <el-tag 
+              v-if="scope.row.level" 
+              :type="getLevelType(scope.row.level)" 
+              size="small"
+            >
+              {{ scope.row.level }}
+            </el-tag>
+            <span v-else class="text-gray-400">-</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="技能标签" width="120" align="center">
+          <template #default="scope">
+            <div class="flex flex-wrap gap-1 justify-center">
+              <el-tag 
+                v-for="skill in scope.row.skills" 
+                :key="skill" 
+                type="info" 
+                size="small"
+              >
+                {{ skill }}
+              </el-tag>
+              <span v-if="!scope.row.skills || scope.row.skills.length === 0" class="text-gray-400">-</span>
             </div>
           </template>
         </el-table-column>
@@ -139,9 +149,9 @@
             </div>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="150" align="center">
+        <el-table-column label="操作" width="200" align="center">
           <template #default="scope">
-            <div class="flex flex-col gap-1">
+            <div class="flex gap-2 justify-center">
               <el-button link type="primary" size="small" @click="handleOpenDialog(scope.row.id)">
                 <i-ep-edit />编辑
               </el-button>
@@ -151,10 +161,10 @@
               <el-button 
                 link 
                 size="small"
-                :type="scope.row.status === 'disabled' ? 'success' : 'warning'"
+                :type="scope.row.status === '禁用' ? 'success' : 'warning'"
                 @click="handleToggleStatus(scope.row.id, scope.row.status)"
               >
-                {{ scope.row.status === 'disabled' ? '启用' : '禁用' }}
+                {{ scope.row.status === '禁用' ? '启用' : '禁用' }}
               </el-button>
               <el-button link type="danger" size="small" @click="handleDelete(scope.row.id)">
                 <i-ep-delete />删除
@@ -183,7 +193,7 @@
       <el-form
         ref="workerFormRef"
         :model="formData"
-        :rules="rules"
+        :rules="formData.id ? rules : { ...rules, ...bankRules }"
         label-width="100px"
       >
         <el-tabs v-model="activeTab">
@@ -226,6 +236,17 @@
                   />
                 </el-form-item>
               </el-col>
+              <el-col :span="12">
+                <el-form-item label="级别" prop="level">
+                  <el-select v-model="formData.level" placeholder="请选择级别" style="width: 100%">
+                    <el-option label="A" value="A" />
+                    <el-option label="S" value="S" />
+                    <el-option label="SSR" value="SSR" />
+                    <el-option label="魔王" value="魔王" />
+                  </el-select>
+                  <div class="form-tip">当前级别: {{ formData.level || '未设置' }}</div>
+                </el-form-item>
+              </el-col>
             </el-row>
             
             <el-row :gutter="20">
@@ -237,21 +258,9 @@
                     <el-option label="休息" value="休息" />
                     <el-option label="禁用" value="禁用" />
                   </el-select>
+                  <div class="form-tip">当前状态: {{ formData.status || '未设置' }}</div>
                 </el-form-item>
               </el-col>
-              <el-col :span="12">
-                <el-form-item label="级别" prop="level">
-                  <el-select v-model="formData.level" placeholder="请选择级别" style="width: 100%">
-                    <el-option label="A" value="A" />
-                    <el-option label="S" value="S" />
-                    <el-option label="SSR" value="SSR" />
-                    <el-option label="魔王" value="魔王" />
-                  </el-select>
-                </el-form-item>
-              </el-col>
-            </el-row>
-            
-            <el-row :gutter="20">
               <el-col :span="12">
                 <el-form-item label="技能标签" prop="skills">
                   <el-select
@@ -268,6 +277,9 @@
                   </el-select>
                 </el-form-item>
               </el-col>
+            </el-row>
+            
+            <el-row :gutter="20">
               <el-col :span="12">
                 <el-form-item label="头像">
                   <el-upload
@@ -305,11 +317,13 @@
                     <el-option label="浦发银行" value="浦发银行" />
                     <el-option label="兴业银行" value="兴业银行" />
                   </el-select>
+                  <div class="form-tip" v-if="!formData.id">* 新增打手时必填</div>
                 </el-form-item>
               </el-col>
               <el-col :span="12">
                 <el-form-item label="银行卡号" prop="bankCard">
                   <el-input v-model="formData.bankCard" placeholder="请输入银行卡号" />
+                  <div class="form-tip" v-if="!formData.id">* 新增打手时必填</div>
                 </el-form-item>
               </el-col>
             </el-row>
@@ -318,6 +332,7 @@
               <el-col :span="12">
                 <el-form-item label="开户姓名" prop="accountName">
                   <el-input v-model="formData.accountName" placeholder="请输入开户姓名" />
+                  <div class="form-tip" v-if="!formData.id">* 新增打手时必填</div>
                 </el-form-item>
               </el-col>
               <el-col :span="12">
@@ -618,7 +633,11 @@ const rules: FormRules = {
     { pattern: /(^\d{15}$)|(^\d{18}$)|(^\d{17}(\d|X|x)$)/, message: '身份证号格式不正确', trigger: 'blur' }
   ],
   hourlyRate: [{ required: true, message: '请输入小时费率', trigger: 'blur' }],
-  status: [{ required: true, message: '请选择状态', trigger: 'change' }],
+  status: [{ required: true, message: '请选择状态', trigger: 'change' }]
+}
+
+// 银行信息验证规则（仅在新增时必填）
+const bankRules: FormRules = {
   bankName: [{ required: true, message: '请选择开户银行', trigger: 'change' }],
   bankCard: [
     { required: true, message: '请输入银行卡号', trigger: 'blur' },
@@ -745,8 +764,8 @@ const handleOpenDialog = async (id?: string) => {
       realName: '',
       idCard: '',
       hourlyRate: 100,
-      status: 'available',
-      level: '',
+      status: '可用',
+      level: 'A',
       avatar: '',
       bankName: '',
       bankCard: '',
@@ -798,7 +817,8 @@ const handleCloseDetailDialog = () => {
 
 // 切换状态
 const handleToggleStatus = (id: string, currentStatus: string) => {
-  const newStatus = currentStatus === '禁用' ? '在职' : '禁用'
+  // 使用新的状态枚举值
+  const newStatus = currentStatus === '禁用' ? '可用' : '禁用'
   const action = newStatus === '禁用' ? '禁用' : '启用'
   
   ElMessageBox.confirm(`确认${action}该打手吗？`, '提示', {
@@ -824,8 +844,13 @@ const handleSubmit = () => {
   console.log('表单引用:', workerFormRef.value)
   console.log('当前表单数据:', formData)
   
-  workerFormRef.value?.validate(async (valid) => {
+  // 根据模式选择验证规则
+  const currentRules = formData.id ? rules : { ...rules, ...bankRules }
+  
+  workerFormRef.value?.validate(async (valid, fields) => {
     console.log('表单验证结果:', valid)
+    console.log('验证失败字段:', fields)
+    
     if (valid) {
       try {
         console.log('提交的表单数据:', formData)
@@ -849,6 +874,18 @@ const handleSubmit = () => {
       }
     } else {
       console.log('表单验证失败')
+      // 提供更友好的验证失败提示
+      if (fields) {
+        const firstErrorField = Object.keys(fields)[0]
+        const firstError = fields[firstErrorField]?.[0]?.message
+        if (firstError) {
+          ElMessage.error(`请完善信息：${firstError}`)
+        } else {
+          ElMessage.error('请完善必填信息')
+        }
+      } else {
+        ElMessage.error('请完善必填信息')
+      }
     }
   })
 }
@@ -1019,5 +1056,12 @@ onMounted(async () => {
     font-size: 24px;
     font-weight: bold;
   }
+}
+
+.form-tip {
+  font-size: 12px;
+  color: #909399;
+  margin-top: 4px;
+  line-height: 1.2;
 }
 </style>

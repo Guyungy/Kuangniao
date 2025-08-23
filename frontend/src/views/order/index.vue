@@ -97,15 +97,51 @@
             {{ formatDateTime(scope.row.createTime) }}
           </template>
         </el-table-column>
-        <el-table-column label="备注" prop="remark" min-width="120" show-overflow-tooltip />
-        <el-table-column label="操作" width="120" align="center">
+        <el-table-column label="上钟时间" prop="startTime" width="160" show-overflow-tooltip>
           <template #default="scope">
-            <el-button link type="primary" @click="handleOpenDialog(scope.row.id)">
-              <i-ep-edit />编辑
-            </el-button>
-            <el-button link type="danger" @click="handleDelete(scope.row.id)">
-              <i-ep-delete />删除
-            </el-button>
+            <div v-if="scope.row.startTime">
+              {{ formatDateTime(scope.row.startTime) }}
+            </div>
+            <span v-else class="text-gray-400">未上钟</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="下钟时间" prop="endTime" width="160" show-overflow-tooltip>
+          <template #default="scope">
+            <div v-if="scope.row.endTime">
+              {{ formatDateTime(scope.row.endTime) }}
+            </div>
+            <span v-else class="text-gray-400">未下钟</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="备注" prop="remark" min-width="120" show-overflow-tooltip />
+        <el-table-column label="操作" width="200" align="center">
+          <template #default="scope">
+            <div class="flex gap-2 justify-center">
+              <el-button 
+                v-if="!scope.row.startTime" 
+                link 
+                type="success" 
+                size="small"
+                @click="handleStartOrder(scope.row.id)"
+              >
+                <i-ep-video-play />上钟
+              </el-button>
+              <el-button 
+                v-if="scope.row.startTime && !scope.row.endTime" 
+                link 
+                type="warning" 
+                size="small"
+                @click="handleEndOrder(scope.row.id)"
+              >
+                <i-ep-video-pause />下钟
+              </el-button>
+              <el-button link type="primary" size="small" @click="handleOpenDialog(scope.row.id)">
+                <i-ep-edit />编辑
+              </el-button>
+              <el-button link type="danger" size="small" @click="handleDelete(scope.row.id)">
+                <i-ep-delete />删除
+              </el-button>
+            </div>
           </template>
         </el-table-column>
       </el-table>
@@ -855,6 +891,46 @@ const handleDelete = async (id: string) => {
     if (error !== 'cancel') {
       console.error('删除订单失败:', error)
       ElMessage.error('删除订单失败')
+    }
+  }
+}
+
+// 上钟
+const handleStartOrder = async (orderId: string) => {
+  try {
+    await ElMessageBox.confirm('确认上钟吗？上钟后将开始计时。', '提示', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning'
+    })
+    
+    await OrderAPI.startOrder(orderId)
+    ElMessage.success('上钟成功')
+    handleQuery() // 刷新列表
+  } catch (error) {
+    if (error !== 'cancel') {
+      console.error('上钟失败:', error)
+      ElMessage.error('上钟失败')
+    }
+  }
+}
+
+// 下钟
+const handleEndOrder = async (orderId: string) => {
+  try {
+    await ElMessageBox.confirm('确认下钟吗？下钟后将结束计时。', '提示', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning'
+    })
+    
+    await OrderAPI.endOrder(orderId)
+    ElMessage.success('下钟成功')
+    handleQuery() // 刷新列表
+  } catch (error) {
+    if (error !== 'cancel') {
+      console.error('下钟失败:', error)
+      ElMessage.error('下钟失败')
     }
   }
 }

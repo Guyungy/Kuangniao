@@ -728,4 +728,248 @@ router.get('/stats/summary', [
   }
 });
 
+// 上钟接口 - 设置订单开始时间
+router.post('/:id/start', [
+  param('id').isInt({ min: 1 }).withMessage('订单ID必须是正整数'),
+  body('start_time').optional().isISO8601().withMessage('上钟时间格式不正确')
+], async (req: Request, res: Response): Promise<void> => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      res.status(400).json({
+        code: 'B0001',
+        message: '参数验证失败',
+        data: null,
+        errors: errors.array()
+      });
+      return;
+    }
+
+    const orderId = parseInt(req.params.id);
+    const { start_time } = req.body;
+
+    const order = await Order.findByPk(orderId, {
+      include: [
+        { model: Member, as: 'member' },
+        { model: Worker, as: 'worker' }
+      ]
+    });
+
+    if (!order) {
+      res.status(404).json({
+        code: 'B0001',
+        message: '订单不存在',
+        data: null
+      });
+      return;
+    }
+
+    // 检查订单状态
+    if (order.isStarted()) {
+      res.status(400).json({
+        code: 'B0001',
+        message: '订单已上钟，不能重复上钟',
+        data: null
+      });
+      return;
+    }
+
+    // 检查打手状态
+    if (order.worker.status !== '可用') {
+      res.status(400).json({
+        code: 'B0001',
+        message: '打手当前不可用，无法上钟',
+        data: null
+      });
+      return;
+    }
+
+    // 设置上钟时间
+    const startTime = start_time ? new Date(start_time) : new Date();
+    order.setStartTime(startTime);
+
+    // 更新打手状态为忙碌
+    await order.worker.update({ status: '忙碌' });
+
+    // 保存订单
+    await order.save();
+
+    res.json({
+      code: '00000',
+      message: '上钟成功',
+      data: {
+        order_id: order.id,
+        start_time: order.start_time,
+        end_time: order.end_time,
+        worker_status: order.worker.status
+      }
+    });
+  } catch (error) {
+    console.error('上钟错误:', error);
+    res.status(500).json({
+      code: 'B0001',
+      message: '服务器内部错误',
+      data: null
+    });
+  }
+});
+
+// 下钟接口 - 设置订单结束时间
+router.post('/:id/end', [
+  param('id').isInt({ min: 1 }).withMessage('订单ID必须是正整数'),
+  body('end_time').optional().isISO8601().withMessage('下钟时间格式不正确')
+], async (req: Request, res: Response): Promise<void> => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      res.status(400).json({
+        code: 'B0001',
+        message: '参数验证失败',
+        data: null,
+        errors: errors.array()
+      });
+      return;
+    }
+
+    const orderId = parseInt(req.params.id);
+    const { end_time } = req.body;
+
+    const order = await Order.findByPk(orderId, {
+      include: [
+        { model: Member, as: 'member' },
+        { model: Worker, as: 'worker' }
+      ]
+    });
+
+    if (!order) {
+      res.status(404).json({
+        code: 'B0001',
+        message: '订单不存在',
+        data: null
+      });
+      return;
+    }
+
+    // 检查订单状态
+    if (!order.isStarted()) {
+      res.status(400).json({
+        code: 'B0001',
+        message: '订单未上钟，无法下钟',
+        data: null
+      });
+      return;
+    }
+
+    if (order.isEnded()) {
+      res.status(400).json({
+        code: 'B0001',
+        message: '订单已下钟，不能重复下钟',
+        data: null
+      });
+      return;
+    }
+
+    // 设置下钟时间
+    const endTime = end_time ? new Date(end_time) : new Date();
+    order.end_time = endTime;
+
+    // 更新打手状态为可用
+    await order.worker.update({ status: '可用' });
+
+    // 保存订单
+    await order.save();
+
+    // 计算实际服务时长
+    const actualDuration = order.start_time && order.end_time 
+      ? (order.end_time.getTime() - order.start_time.getTime()) / (1000 * 60 * 60) // 转换为小时
+      : order.duration;
+
+    res.json({
+      code: '00000',
+      message: '下钟成功',
+      data: {
+        order_id: order.id,
+        start_time: order.start_time,
+        end_time: order.end_time,
+        actual_duration: actualDuration,
+        worker_status: order.worker.status
+      }
+    });
+  } catch (error) {
+    console.error('下钟错误:', error);
+    res.status(500).json({
+      code: 'B0001',
+      message: '服务器内部错误',
+      data: null
+    });
+  }
+});
+
+// 获取即将下钟的订单列表（用于提醒）
+router.get('/ending-soon', [
+  query('minutes').optional().isInt({ min: 1, max: 60 }).withMessage('提醒时间必须在1-60分钟之间')
+], async (req: Request, res: Response): Promise<void> => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      res.status(400).json({
+        code: 'B0001',
+        message: '参数验证失败',
+        data: null,
+        errors: errors.array()
+      });
+      return;
+    }
+
+    const minutes = parseInt(req.query.minutes as string) || 10; // 默认10分钟内下钟的订单
+    const now = new Date();
+    const threshold = new Date(now.getTime() + minutes * 60 * 1000);
+
+    const orders = await Order.findAll({
+      where: {
+        start_time: { [Op.ne]: null },
+        end_time: {
+          [Op.ne]: null,
+          [Op.between]: [now, threshold]
+        }
+      },
+      include: [
+        { model: Member, as: 'member', attributes: ['id', 'nickname', 'phone'] },
+        { model: Worker, as: 'worker', attributes: ['id', 'name', 'phone'] }
+      ],
+      order: [['end_time', 'ASC']]
+    });
+
+    const endingSoonOrders = orders.map(order => ({
+      order_id: order.id,
+      order_number: order.getOrderNumber(),
+      member_name: order.member.nickname,
+      member_phone: order.member.phone,
+      worker_name: order.worker.name,
+      worker_phone: order.worker.phone,
+      start_time: order.start_time,
+      end_time: order.end_time,
+      remaining_minutes: order.getRemainingTime(),
+      duration: order.duration
+    }));
+
+    res.json({
+      code: '00000',
+      message: '获取即将下钟订单成功',
+      data: {
+        orders: endingSoonOrders,
+        count: endingSoonOrders.length,
+        threshold_minutes: minutes
+      }
+    });
+  } catch (error) {
+    console.error('获取即将下钟订单错误:', error);
+    res.status(500).json({
+      code: 'B0001',
+      message: '服务器内部错误',
+      data: null
+    });
+  }
+});
+
 export default router;
