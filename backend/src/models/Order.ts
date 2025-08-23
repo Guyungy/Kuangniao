@@ -215,7 +215,15 @@ export class Order extends Model {
 
   // 实例方法：设置上钟时间
   setStartTime(time?: Date): void {
-    this.start_time = time || new Date();
+    // 如果没有提供时间，使用当前北京时间
+    if (!time) {
+      const now = new Date();
+      // 获取当前UTC时间并转换为北京时间（UTC+8）
+      const beijingTime = new Date(now.getTime() + 8 * 60 * 60 * 1000);
+      this.start_time = beijingTime;
+    } else {
+      this.start_time = time;
+    }
     this.status = OrderStatus.IN_SERVICE;
     this.updateEndTime();
   }
@@ -232,7 +240,15 @@ export class Order extends Model {
 
   // 实例方法：设置下钟时间
   setEndTime(time?: Date): void {
-    this.end_time = time || new Date();
+    // 如果没有提供时间，使用当前北京时间
+    if (!time) {
+      const now = new Date();
+      // 获取当前UTC时间并转换为北京时间（UTC+8）
+      const beijingTime = new Date(now.getTime() + 8 * 60 * 60 * 1000);
+      this.end_time = beijingTime;
+    } else {
+      this.end_time = time;
+    }
     this.status = OrderStatus.COMPLETED;
   }
 

@@ -47,16 +47,6 @@ export interface RechargeStats {
 
 // 数据映射函数
 function mapRechargeFromBackend(item: any): RechargeVO {
-  // 支付方式映射
-  const getPayMethodText = (method: string) => {
-    const methodMap: Record<string, string> = {
-      'balance': '余额支付',
-      'scan': '扫码支付',
-      'qrcode': '扫码支付'
-    };
-    return methodMap[method] || method;
-  };
-
   return {
     id: String(item.id),
     rechargeNo: item.recharge_no || item.rechargeNo || '',
@@ -64,7 +54,7 @@ function mapRechargeFromBackend(item: any): RechargeVO {
     memberUsername: item.member?.username || item.memberUsername || '',
     memberNickname: item.member?.nickname || item.memberNickname || '',
     amount: Number(item.amount || 0),
-    payMethod: getPayMethodText(item.method || item.payMethod || ''),
+    payMethod: item.method || item.payMethod || '', // 保持原始枚举值
     balanceChange: Number(item.amount || 0), // 充值记录余额变动等于充值金额
     createTime: item.created_at || item.createdAt || item.createTime || '',
     operatorName: item.operator_name || item.operatorName || '',

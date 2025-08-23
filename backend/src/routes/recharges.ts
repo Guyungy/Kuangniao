@@ -208,10 +208,10 @@ router.post('/', [
     const rechargeNo = `RC${timestamp}${randomNum}`;
     console.log('生成充值编号:', rechargeNo);
 
-    // 检查会员是否存在
+    // 检查会员是否存在且状态正常
     console.log('查找会员ID:', member_id);
     const member = await Member.findByPk(member_id, { transaction });
-    console.log('找到的会员:', member ? { id: member.id, nickname: member.nickname } : null);
+    console.log('找到的会员:', member ? { id: member.id, nickname: member.nickname, status: member.status } : null);
     
     if (!member) {
       console.log('会员不存在，回滚事务');
@@ -219,6 +219,18 @@ router.post('/', [
       res.status(404).json({
         code: 'B0001',
         message: '会员不存在',
+        data: null
+      });
+      return;
+    }
+
+    // 检查会员状态
+    if (member.status === 'disabled') {
+      console.log('会员已被禁用，回滚事务');
+      await transaction.rollback();
+      res.status(400).json({
+        code: 'B0001',
+        message: '该会员已被禁用，无法进行充值',
         data: null
       });
       return;

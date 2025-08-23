@@ -271,7 +271,7 @@ router.post('/', [
       remark
     } = req.body;
 
-    // 检查会员是否存在
+    // 检查会员是否存在且状态正常
     console.log('检查会员，ID:', member_id);
     const member = await Member.findByPk(member_id, { transaction });
     console.log('会员信息:', member);
@@ -280,6 +280,17 @@ router.post('/', [
       res.status(404).json({
         code: 'B0001',
         message: '会员不存在',
+        data: null
+      });
+      return;
+    }
+
+    // 检查会员状态
+    if (member.status === 'disabled') {
+      await transaction.rollback();
+      res.status(400).json({
+        code: 'B0001',
+        message: '该会员已被禁用，无法创建订单',
         data: null
       });
       return;
@@ -871,7 +882,7 @@ router.post('/:id/end', [
 
     // 设置下钟时间
     const endTime = end_time ? new Date(end_time) : new Date();
-    order.end_time = endTime;
+    order.setEndTime(endTime);
 
     // 更新打手状态为可用
     await order.worker.update({ status: '可用' });

@@ -260,6 +260,24 @@ const MemberAPI = {
     });
   },
 
+  /** 切换会员状态（禁用/启用） */
+  toggleStatus(id: string, status: number) {
+    return request<any, any>({
+      url: `${MEMBER_BASE_URL}/${id}/toggle-status`,
+      method: 'patch',
+      data: { status }
+    }).then((response) => {
+      // 处理后端响应格式 { code: "00000", data: null }
+      if (response && response.code === '00000') {
+        return response;
+      }
+      throw new Error('切换会员状态响应格式错误');
+    }).catch((error) => {
+      console.error('切换会员状态失败:', error);
+      throw error;
+    });
+  },
+
   /** 获取会员充值记录 */
   getRechargeRecords(memberId: string, params?: { pageNum?: number; pageSize?: number }) {
     const backendParams: any = {

@@ -57,7 +57,7 @@
         </div>
       </template>
 
-      <el-table v-loading="loading" :data="orderList" stripe>
+      <el-table v-loading="loading" :data="orderList" stripe :row-class-name="getRowClassName">
         <el-table-column label="订单号" prop="orderNo" width="150" show-overflow-tooltip />
         <el-table-column label="会员信息" width="140">
           <template #default="scope">
@@ -85,10 +85,15 @@
             <span class="text-red-600 font-medium">¥{{ scope.row.amount }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="支付方式" prop="payMethod" width="100" align="center">
+                 <el-table-column label="支付方式" prop="payMethod" width="100" align="center">
+           <template #default="scope">
+             <span class="payment-method-text">{{ getPaymentMethodText(scope.row.payMethod) }}</span>
+           </template>
+         </el-table-column>
+        <el-table-column label="状态" prop="status" width="100" align="center">
           <template #default="scope">
-            <el-tag :type="getPaymentMethodType(scope.row.payMethod)">
-              {{ getPaymentMethodText(scope.row.payMethod) }}
+            <el-tag :type="getStatusTagType(scope.row.status)">
+              {{ scope.row.statusText }}
             </el-tag>
           </template>
         </el-table-column>
@@ -118,7 +123,7 @@
           <template #default="scope">
             <div class="flex gap-2 justify-center">
               <el-button 
-                v-if="!scope.row.startTime" 
+                v-if="scope.row.status === 'pending'" 
                 link 
                 type="success" 
                 size="small"
@@ -127,7 +132,7 @@
                 <i-ep-video-play />上钟
               </el-button>
               <el-button 
-                v-if="scope.row.startTime && !scope.row.endTime" 
+                v-if="scope.row.status === 'in_service'" 
                 link 
                 type="warning" 
                 size="small"
@@ -471,6 +476,7 @@ import type { FormInstance, FormRules } from 'element-plus'
 import OrderAPI, { type OrderVO, type OrderForm, type OrderStats } from '@/api/order'
 import MemberAPI, { type MemberVO } from '@/api/member'
 import WorkerAPI, { type WorkerVO } from '@/api/worker'
+import { getPaymentMethodText } from '@/utils/payment'
 
 defineOptions({
   name: 'Order',
@@ -577,25 +583,28 @@ const rules: FormRules = {
   payMethod: [{ required: true, message: '请选择支付方式', trigger: 'change' }]
 }
 
-// 支付方式类型
-const getPaymentMethodType = (method: string): 'success' | 'primary' | 'warning' | 'info' | 'danger' => {
+
+
+// 订单状态类型
+const getStatusTagType = (status: string): 'success' | 'primary' | 'warning' | 'info' | 'danger' => {
   const typeMap: Record<string, 'success' | 'primary' | 'warning' | 'info' | 'danger'> = {
-    balance: 'warning',
-    scan: 'success',
-    qrcode: 'success' // 兼容旧值
+    'pending': 'info',
+    'in_service': 'warning',
+    'completed': 'success',
+    'cancelled': 'danger'
   }
-  return typeMap[method] || 'info'
+  return typeMap[status] || 'info'
 }
 
-// 支付方式文本
-const getPaymentMethodText = (method: string) => {
-  const textMap: Record<string, string> = {
-    balance: '余额支付',
-    scan: '扫码支付',
-    qrcode: '扫码支付' // 兼容旧值
+// 表格行样式
+const getRowClassName = ({ row }: { row: any }) => {
+  if (row.status === 'in_service') {
+    return 'in-service-row'
   }
-  return textMap[method] || '未知';
+  return ''
 }
+
+
 
 // 会员状态类型
 const getMemberStatusType = (status: string): 'success' | 'danger' | 'warning' | 'info' => {
@@ -634,16 +643,16 @@ const getWorkerStatusType = (status: string): 'success' | 'danger' | 'warning' |
 const formatDateTime = (dateStr: string) => {
   if (!dateStr) return ''
   const date = new Date(dateStr)
-  // 转换为北京时间（UTC+8）
-  const beijingTime = new Date(date.getTime() + 8 * 60 * 60 * 1000)
-  return beijingTime.toLocaleString('zh-CN', {
+  // 直接使用 toLocaleString 并指定时区为 Asia/Shanghai（北京时间）
+  return date.toLocaleString('zh-CN', {
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
     hour: '2-digit',
     minute: '2-digit',
     second: '2-digit',
-    hour12: false
+    hour12: false,
+    timeZone: 'Asia/Shanghai'
   })
 }
 
@@ -687,11 +696,11 @@ const handleMemberSearch = () => {
 const handleMemberQuery = async () => {
   memberLoading.value = true
   try {
-    const result = await MemberAPI.getPage({
-      keyword: memberQueryParams.keyword,
-      page: memberQueryParams.page,
-      limit: memberQueryParams.limit
-    })
+         const result = await MemberAPI.getPage({
+       keywords: memberQueryParams.keyword,
+       pageNum: memberQueryParams.page,
+       pageSize: memberQueryParams.limit
+     })
     memberList.value = result.list
     memberTotal.value = result.total
   } catch (error) {
@@ -938,8 +947,8 @@ const handleEndOrder = async (orderId: string) => {
 // 导出
 const handleExport = async () => {
   try {
-    const blob = await OrderAPI.export(queryParams)
-    const url = window.URL.createObjectURL(blob)
+         const response = await OrderAPI.export(queryParams)
+     const url = window.URL.createObjectURL(response as unknown as Blob)
     const link = document.createElement('a')
     link.href = url
     link.download = `订单列表_${new Date().toISOString().slice(0, 10)}.xlsx`
@@ -1045,5 +1054,52 @@ onMounted(async () => {
       color: #999;
     }
   }
+}
+
+/* 服务中订单的高亮样式 */
+:deep(.in-service-row) {
+  background-color: #fff7e6 !important;
+  border-left: 4px solid #e6a23c;
+}
+
+:deep(.in-service-row:hover) {
+  background-color: #fff2d9 !important;
+}
+
+/* 支付方式文本样式 */
+.payment-method-text {
+  font-size: 14px;
+  color: #606266;
+  font-weight: 500;
+}
+
+/* 状态标签样式优化 */
+:deep(.el-tag) {
+  font-weight: 500;
+  border-radius: 4px;
+}
+
+:deep(.el-tag--info) {
+  background-color: #f4f4f5;
+  border-color: #e9e9eb;
+  color: #909399;
+}
+
+:deep(.el-tag--warning) {
+  background-color: #fdf6ec;
+  border-color: #f5dab1;
+  color: #e6a23c;
+}
+
+:deep(.el-tag--success) {
+  background-color: #f0f9ff;
+  border-color: #b3d8ff;
+  color: #67c23a;
+}
+
+:deep(.el-tag--danger) {
+  background-color: #fef0f0;
+  border-color: #fbc4c4;
+  color: #f56c6c;
 }
 </style>

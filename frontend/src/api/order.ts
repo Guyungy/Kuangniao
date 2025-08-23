@@ -23,6 +23,9 @@ export interface OrderVO {
   serviceHours: number;
   amount: number;
   payMethod: string;
+  status: string;
+  statusText: string;
+  statusColor: string;
   createTime: string;
   startTime?: string;
   endTime?: string;
@@ -56,14 +59,26 @@ export interface OrderStats {
 function mapOrderFromBackend(item: any): OrderVO {
   console.log('映射订单数据，原始数据:', item);
   
-  // 支付方式映射
-  const getPayMethodText = (method: string) => {
-    const methodMap: Record<string, string> = {
-      'balance': '余额支付',
-      'scan': '扫码支付',
-      'qrcode': '扫码支付'
+  // 订单状态映射
+  const getStatusText = (status: string) => {
+    const statusMap: Record<string, string> = {
+      'pending': '待上钟',
+      'in_service': '服务中',
+      'completed': '已完成',
+      'cancelled': '已取消'
     };
-    return methodMap[method] || method;
+    return statusMap[status] || status;
+  };
+
+  // 订单状态颜色映射
+  const getStatusColor = (status: string) => {
+    const colorMap: Record<string, string> = {
+      'pending': '#909399',    // 灰色
+      'in_service': '#E6A23C', // 橙色
+      'completed': '#67C23A',  // 绿色
+      'cancelled': '#F56C6C'   // 红色
+    };
+    return colorMap[status] || '#909399';
   };
 
   const mappedData = {
@@ -77,7 +92,10 @@ function mapOrderFromBackend(item: any): OrderVO {
     workerNickname: item.worker?.name || item.workerNickname || '',
     serviceHours: Number(item.duration || item.serviceHours || 0),
     amount: Number(item.price_final || item.amount || 0),
-    payMethod: getPayMethodText(item.pay_method || item.payMethod || ''),
+    payMethod: item.pay_method || item.payMethod || '', // 保持原始枚举值
+    status: item.status || 'pending',
+    statusText: getStatusText(item.status || 'pending'),
+    statusColor: getStatusColor(item.status || 'pending'),
     createTime: item.created_at || item.createdAt || item.createTime || '',
     startTime: item.start_time || item.startTime || '',
     endTime: item.end_time || item.endTime || '',

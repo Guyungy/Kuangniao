@@ -71,13 +71,11 @@
             <span class="text-green-600 font-medium">+¥{{ scope.row.amount }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="支付方式" prop="payMethod" width="110" align="center">
-          <template #default="scope">
-            <el-tag :type="getPaymentMethodType(scope.row.payMethod)">
-              {{ getPaymentMethodText(scope.row.payMethod) }}
-            </el-tag>
-          </template>
-        </el-table-column>
+                 <el-table-column label="支付方式" prop="payMethod" width="110" align="center">
+           <template #default="scope">
+             <span class="payment-method-text">{{ getPaymentMethodText(scope.row.payMethod) }}</span>
+           </template>
+         </el-table-column>
         <el-table-column label="余额变动" prop="balanceChange" width="120" align="right">
           <template #default="scope">
             <span class="text-green-600">+¥{{ scope.row.balanceChange }}</span>
@@ -345,38 +343,32 @@ const rules: FormRules = {
   payMethod: [{ required: true, message: '请选择支付方式', trigger: 'change' }]
 }
 
-// 支付方式类型
-const getPaymentMethodType = (method: string): 'success' | 'primary' | 'warning' | 'info' | 'danger' => {
-  const typeMap: Record<string, 'success' | 'primary' | 'warning' | 'info' | 'danger'> = {
-    scan: 'success',
-    qrcode: 'success'
-  }
-  return typeMap[method] || 'info'
-}
+
 
 // 支付方式文本
 const getPaymentMethodText = (method: string) => {
   const textMap: Record<string, string> = {
+    balance: '余额支付',
     scan: '扫码支付',
-    qrcode: '扫码支付'
+    qrcode: '扫码支付' // 兼容旧值
   }
-  return textMap[method] || method
+  return textMap[method] || '未知'
 }
 
 // 时间格式化函数
 const formatDateTime = (dateStr: string) => {
   if (!dateStr) return ''
   const date = new Date(dateStr)
-  // 转换为北京时间（UTC+8）
-  const beijingTime = new Date(date.getTime() + 8 * 60 * 60 * 1000)
-  return beijingTime.toLocaleString('zh-CN', {
+  // 直接使用 toLocaleString 并指定时区为 Asia/Shanghai（北京时间）
+  return date.toLocaleString('zh-CN', {
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
     hour: '2-digit',
     minute: '2-digit',
     second: '2-digit',
-    hour12: false
+    hour12: false,
+    timeZone: 'Asia/Shanghai'
   })
 }
 
@@ -605,6 +597,13 @@ onMounted(async () => {
 
 .table-container {
   margin-bottom: 20px;
+}
+
+/* 支付方式文本样式 */
+.payment-method-text {
+  font-size: 14px;
+  color: #606266;
+  font-weight: 500;
 }
 
 .stat-card {

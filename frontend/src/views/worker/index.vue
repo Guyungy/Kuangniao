@@ -979,6 +979,36 @@ onMounted(async () => {
   margin-bottom: 20px;
 }
 
+/* 状态标签样式优化 */
+:deep(.el-tag) {
+  font-weight: 500;
+  border-radius: 4px;
+}
+
+:deep(.el-tag--info) {
+  background-color: #f4f4f5;
+  border-color: #e9e9eb;
+  color: #909399;
+}
+
+:deep(.el-tag--warning) {
+  background-color: #fdf6ec;
+  border-color: #f5dab1;
+  color: #e6a23c;
+}
+
+:deep(.el-tag--success) {
+  background-color: #f0f9ff;
+  border-color: #b3d8ff;
+  color: #67c23a;
+}
+
+:deep(.el-tag--danger) {
+  background-color: #fef0f0;
+  border-color: #fbc4c4;
+  color: #f56c6c;
+}
+
 .avatar-uploader {
   .avatar {
     width: 80px;

@@ -18,7 +18,7 @@ export {
 export { MemberStatus } from './Member';
 export { RechargeMethod } from './Recharge';
 export { WorkerType, WorkerStatus } from './Worker';
-export { PayMethod } from './Order';
+export { PayMethod, OrderStatus } from './Order';
 export { UserRole, UserStatus } from './User';
 
 // 初始化模型关联关系

@@ -584,4 +584,58 @@ router.get('/:id/orders', [
   }
 });
 
+// 切换会员状态（禁用/启用）
+router.patch('/:id/toggle-status', [
+  param('id').isInt({ min: 1 }).withMessage('会员ID必须是正整数'),
+  body('status').isInt({ min: 0, max: 1 }).withMessage('状态值必须是0或1')
+], async (req: Request, res: Response): Promise<void> => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      res.status(400).json({
+        code: 'B0001',
+        message: '参数验证失败',
+        data: null,
+        errors: errors.array()
+      });
+      return;
+    }
+
+    const memberId = parseInt(req.params.id);
+    const status = parseInt(req.body.status);
+
+    // 检查会员是否存在
+    const member = await Member.findByPk(memberId);
+    if (!member) {
+      res.status(404).json({
+        code: 'B0001',
+        message: '会员不存在',
+        data: null
+      });
+      return;
+    }
+
+    // 转换状态值
+    const newStatus = status === 1 ? MemberStatus.ACTIVE : MemberStatus.DISABLED;
+    
+    // 更新会员状态
+    await member.update({ status: newStatus });
+
+    console.log(`会员状态已更新: ID=${memberId}, 状态=${newStatus}`);
+
+    res.json({
+      code: '00000',
+      message: status === 1 ? '会员已启用' : '会员已禁用',
+      data: null
+    });
+  } catch (error) {
+    console.error('切换会员状态错误:', error);
+    res.status(500).json({
+      code: 'B0001',
+      message: '服务器内部错误',
+      data: null
+    });
+  }
+});
+
 export default router;

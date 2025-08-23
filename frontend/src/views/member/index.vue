@@ -73,13 +73,29 @@
             {{ formatDateTime(scope.row.createdAt) }}
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="180" align="center">
+        <el-table-column label="操作" width="220" align="center">
           <template #default="scope">
             <el-button link type="primary" @click="handleOpenDialog(scope.row.id)">
               <i-ep-edit />编辑
             </el-button>
             <el-button link type="info" @click="handleViewDetail(scope.row)">
               <i-ep-view />详情
+            </el-button>
+            <el-button 
+              v-if="scope.row.status === 1" 
+              link 
+              type="warning" 
+              @click="handleToggleStatus(scope.row.id, 0)"
+            >
+              <i-ep-lock />禁用
+            </el-button>
+            <el-button 
+              v-else 
+              link 
+              type="success" 
+              @click="handleToggleStatus(scope.row.id, 1)"
+            >
+              <i-ep-unlock />启用
             </el-button>
             <el-button link type="danger" @click="handleDelete(scope.row.id)">
               <i-ep-delete />删除
@@ -281,16 +297,16 @@ const rules: FormRules = {
 const formatDateTime = (dateStr: string) => {
   if (!dateStr) return ''
   const date = new Date(dateStr)
-  // 转换为北京时间（UTC+8）
-  const beijingTime = new Date(date.getTime() + 8 * 60 * 60 * 1000)
-  return beijingTime.toLocaleString('zh-CN', {
+  // 直接使用 toLocaleString 并指定时区为 Asia/Shanghai（北京时间）
+  return date.toLocaleString('zh-CN', {
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
     hour: '2-digit',
     minute: '2-digit',
     second: '2-digit',
-    hour12: false
+    hour12: false,
+    timeZone: 'Asia/Shanghai'
   })
 }
 
@@ -414,6 +430,25 @@ const handleViewDetail = async (row: MemberVO) => {
   }
 }
 
+// 切换状态
+const handleToggleStatus = (id: string, status: number) => {
+  const action = status === 1 ? '启用' : '禁用'
+  ElMessageBox.confirm(`确认${action}该会员吗？`, '提示', {
+    confirmButtonText: '确定',
+    cancelButtonText: '取消',
+    type: 'warning'
+  }).then(async () => {
+    try {
+      await MemberAPI.toggleStatus(id, status)
+      ElMessage.success(`${action}成功`)
+      handleQuery()
+    } catch (error) {
+      console.error(`${action}会员失败:`, error)
+      ElMessage.error(`${action}失败`)
+    }
+  })
+}
+
 // 删除
 const handleDelete = (id: string) => {
   ElMessageBox.confirm('确认删除该会员吗？', '提示', {
@@ -445,5 +480,35 @@ onMounted(() => {
 
 .table-container {
   margin-bottom: 20px;
+}
+
+/* 状态标签样式优化 */
+:deep(.el-tag) {
+  font-weight: 500;
+  border-radius: 4px;
+}
+
+:deep(.el-tag--info) {
+  background-color: #f4f4f5;
+  border-color: #e9e9eb;
+  color: #909399;
+}
+
+:deep(.el-tag--warning) {
+  background-color: #fdf6ec;
+  border-color: #f5dab1;
+  color: #e6a23c;
+}
+
+:deep(.el-tag--success) {
+  background-color: #f0f9ff;
+  border-color: #b3d8ff;
+  color: #67c23a;
+}
+
+:deep(.el-tag--danger) {
+  background-color: #fef0f0;
+  border-color: #fbc4c4;
+  color: #f56c6c;
 }
 </style>
