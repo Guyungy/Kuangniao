@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { Order, PayMethod, Member, Worker, WorkerStatus } from '../models';
+import { Order, PayMethod, OrderStatus, Member, Worker, WorkerStatus } from '../models';
 import { authenticateToken } from '../middleware/auth';
 import { body, query, param, validationResult } from 'express-validator';
 import { Op } from 'sequelize';
