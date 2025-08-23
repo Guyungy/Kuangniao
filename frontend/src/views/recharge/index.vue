@@ -58,8 +58,8 @@
       </template>
 
       <el-table v-loading="loading" :data="rechargeList" stripe>
-        <el-table-column label="充值编号" prop="rechargeNo" width="150" />
-        <el-table-column label="会员信息" width="150">
+        <el-table-column label="充值编号" prop="rechargeNo" width="180" show-overflow-tooltip />
+        <el-table-column label="会员信息" width="160">
           <template #default="scope">
             <div>
               <div class="font-medium">{{ scope.row.memberNickname }}</div>
@@ -72,7 +72,7 @@
             <span class="text-green-600 font-medium">+¥{{ scope.row.amount }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="支付方式" prop="payMethod" width="100" align="center">
+        <el-table-column label="支付方式" prop="payMethod" width="110" align="center">
           <template #default="scope">
             <el-tag :type="getPaymentMethodType(scope.row.payMethod)">
               {{ getPaymentMethodText(scope.row.payMethod) }}
@@ -84,10 +84,14 @@
             <span class="text-green-600">+¥{{ scope.row.balanceChange }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="充值时间" prop="createTime" width="160" />
-        <el-table-column label="操作人" prop="operatorName" width="100" />
-        <el-table-column label="备注" prop="remark" min-width="120" show-overflow-tooltip />
-        <el-table-column label="操作" width="150" align="center">
+        <el-table-column label="充值时间" prop="createTime" width="180" show-overflow-tooltip>
+          <template #default="scope">
+            {{ formatDateTime(scope.row.createTime) }}
+          </template>
+        </el-table-column>
+        <el-table-column label="操作人" prop="operatorName" width="100" show-overflow-tooltip />
+        <el-table-column label="备注" prop="remark" min-width="150" show-overflow-tooltip />
+        <el-table-column label="操作" width="130" align="center">
           <template #default="scope">
             <el-button link type="primary" @click="handleOpenDialog(scope.row.id)">
               <i-ep-edit />编辑
@@ -169,7 +173,7 @@
               <el-option
                 v-for="member in memberOptions"
                 :key="member.id"
-                :label="`${member.nickname} (${member.phone})`"
+                :label="`${member.nickname} (${member.username})`"
                 :value="member.id"
               />
             </el-select>
@@ -361,6 +365,23 @@ const getPaymentMethodText = (method: string) => {
     qrcode: '扫码支付'
   }
   return textMap[method] || method
+}
+
+// 时间格式化函数
+const formatDateTime = (dateStr: string) => {
+  if (!dateStr) return ''
+  const date = new Date(dateStr)
+  // 转换为北京时间（UTC+8）
+  const beijingTime = new Date(date.getTime() + 8 * 60 * 60 * 1000)
+  return beijingTime.toLocaleString('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  })
 }
 
 // 查询

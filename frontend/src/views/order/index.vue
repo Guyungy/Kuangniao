@@ -14,7 +14,7 @@
         <el-form-item label="支付方式" prop="payMethod">
           <el-select v-model="queryParams.payMethod" placeholder="请选择" clearable style="width: 120px">
             <el-option label="余额" value="balance" />
-            <el-option label="扫码" value="qrcode" />
+            <el-option label="扫码" value="scan" />
           </el-select>
         </el-form-item>
         <el-form-item label="下单时间">
@@ -58,8 +58,8 @@
       </template>
 
       <el-table v-loading="loading" :data="orderList" stripe>
-        <el-table-column label="订单号" prop="orderNo" width="150" />
-        <el-table-column label="会员信息" width="150">
+        <el-table-column label="订单号" prop="orderNo" width="150" show-overflow-tooltip />
+        <el-table-column label="会员信息" width="140">
           <template #default="scope">
             <div>
               <div class="font-medium">{{ scope.row.memberNickname }}</div>
@@ -67,7 +67,7 @@
             </div>
           </template>
         </el-table-column>
-        <el-table-column label="打手信息" width="150">
+        <el-table-column label="打手信息" width="140">
           <template #default="scope">
             <div>
               <div class="font-medium">{{ scope.row.workerNickname }}</div>
@@ -80,7 +80,7 @@
             <span class="text-blue-600">{{ scope.row.serviceHours }}小时</span>
           </template>
         </el-table-column>
-        <el-table-column label="订单金额" prop="amount" width="100" align="right">
+        <el-table-column label="订单金额" prop="amount" width="110" align="right">
           <template #default="scope">
             <span class="text-red-600 font-medium">¥{{ scope.row.amount }}</span>
           </template>
@@ -92,9 +92,13 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="下单时间" prop="createTime" width="160" />
+        <el-table-column label="下单时间" prop="createTime" width="160" show-overflow-tooltip>
+          <template #default="scope">
+            {{ formatDateTime(scope.row.createTime) }}
+          </template>
+        </el-table-column>
         <el-table-column label="备注" prop="remark" min-width="120" show-overflow-tooltip />
-        <el-table-column label="操作" width="150" align="center">
+        <el-table-column label="操作" width="120" align="center">
           <template #default="scope">
             <el-button link type="primary" @click="handleOpenDialog(scope.row.id)">
               <i-ep-edit />编辑
@@ -131,22 +135,18 @@
         <el-row :gutter="20">
           <el-col :span="12">
             <el-form-item label="选择会员" prop="memberId">
-              <el-select
-                v-model="formData.memberId"
-                placeholder="请选择会员"
-                filterable
-                remote
-                :remote-method="searchMembers"
-                style="width: 100%"
-                @change="handleMemberChange"
-              >
-                <el-option
-                  v-for="member in memberOptions"
-                  :key="member.id"
-                  :label="`${member.nickname} (${member.username})`"
-                  :value="member.id"
+              <div class="flex items-center">
+                <el-input
+                  v-model="selectedMemberText"
+                  placeholder="请选择会员"
+                  readonly
+                  style="width: 100%"
+                  @click="showMemberDialog = true"
                 />
-              </el-select>
+                <el-button type="primary" @click="showMemberDialog = true" class="ml-2">
+                  <i-ep-search />选择
+                </el-button>
+              </div>
             </el-form-item>
           </el-col>
           <el-col :span="12">
@@ -159,22 +159,18 @@
         <el-row :gutter="20">
           <el-col :span="12">
             <el-form-item label="选择打手" prop="workerId">
-              <el-select
-                v-model="formData.workerId"
-                placeholder="请选择打手"
-                filterable
-                remote
-                :remote-method="searchWorkers"
-                style="width: 100%"
-                @change="handleWorkerChange"
-              >
-                <el-option
-                  v-for="worker in workerOptions"
-                  :key="worker.id"
-                  :label="`${worker.nickname} (¥${worker.hourlyRate}/小时)`"
-                  :value="worker.id"
+              <div class="flex items-center">
+                <el-input
+                  v-model="selectedWorkerText"
+                  placeholder="请选择打手"
+                  readonly
+                  style="width: 100%"
+                  @click="showWorkerDialog = true"
                 />
-              </el-select>
+                <el-button type="primary" @click="showWorkerDialog = true" class="ml-2">
+                  <i-ep-search />选择
+                </el-button>
+              </div>
             </el-form-item>
           </el-col>
           <el-col :span="12">
@@ -217,7 +213,7 @@
         <el-form-item label="支付方式" prop="payMethod">
           <el-radio-group v-model="formData.payMethod">
             <el-radio value="balance">余额支付</el-radio>
-            <el-radio value="qrcode">扫码支付</el-radio>
+            <el-radio value="scan">扫码支付</el-radio>
           </el-radio-group>
         </el-form-item>
         
@@ -297,6 +293,138 @@
         </el-card>
       </el-col>
     </el-row>
+
+    <!-- 会员选择弹窗 -->
+    <el-dialog
+      v-model="showMemberDialog"
+      title="选择会员"
+      width="900px"
+      @close="handleCloseMemberDialog"
+    >
+      <div class="mb-4">
+        <el-input
+          v-model="memberSearchKeyword"
+          placeholder="搜索会员昵称、用户名或手机号"
+          clearable
+          style="width: 300px"
+          @keyup.enter="handleMemberSearch"
+        >
+          <template #append>
+            <el-button @click="handleMemberSearch">
+              <i-ep-search />
+            </el-button>
+          </template>
+        </el-input>
+      </div>
+      
+      <el-table
+        v-loading="memberLoading"
+        :data="memberList"
+        stripe
+        @row-click="handleMemberSelect"
+        style="cursor: pointer"
+      >
+        <el-table-column label="用户名" prop="username" width="120" show-overflow-tooltip />
+        <el-table-column label="昵称" prop="nickname" width="120" show-overflow-tooltip />
+        <el-table-column label="手机号" prop="phone" width="130" show-overflow-tooltip />
+        <el-table-column label="余额" prop="balance" width="100" align="right">
+          <template #default="scope">
+            <span class="text-green-600">¥{{ scope.row.balance }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="累计充值" prop="totalRecharge" width="100" align="right">
+          <template #default="scope">
+            <span class="text-blue-600">¥{{ scope.row.totalRecharge }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="累计消费" prop="totalConsume" width="100" align="right">
+          <template #default="scope">
+            <span class="text-red-600">¥{{ scope.row.totalConsume }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="状态" prop="status" width="80" align="center">
+          <template #default="scope">
+            <el-tag :type="getMemberStatusType(scope.row.status)">
+              {{ getMemberStatusText(scope.row.status) }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="注册时间" prop="createTime" width="160" show-overflow-tooltip>
+          <template #default="scope">
+            {{ formatDateTime(scope.row.createTime) }}
+          </template>
+        </el-table-column>
+      </el-table>
+      
+      <pagination
+        v-if="memberTotal > 0"
+        v-model:total="memberTotal"
+        v-model:page="memberQueryParams.page"
+        v-model:limit="memberQueryParams.limit"
+        @pagination="handleMemberQuery"
+      />
+    </el-dialog>
+
+    <!-- 打手选择弹窗 -->
+    <el-dialog
+      v-model="showWorkerDialog"
+      title="选择打手"
+      width="900px"
+      @close="handleCloseWorkerDialog"
+    >
+      <div class="mb-4">
+        <el-input
+          v-model="workerSearchKeyword"
+          placeholder="搜索打手昵称、真实姓名或手机号"
+          clearable
+          style="width: 300px"
+          @keyup.enter="handleWorkerSearch"
+        >
+          <template #append>
+            <el-button @click="handleWorkerSearch">
+              <i-ep-search />
+            </el-button>
+          </template>
+        </el-input>
+      </div>
+      
+      <el-table
+        v-loading="workerLoading"
+        :data="workerList"
+        stripe
+        @row-click="handleWorkerSelect"
+        style="cursor: pointer"
+      >
+        <el-table-column label="昵称" prop="nickname" width="120" show-overflow-tooltip />
+        <el-table-column label="真实姓名" prop="realName" width="120" show-overflow-tooltip />
+        <el-table-column label="手机号" prop="phone" width="130" show-overflow-tooltip />
+        <el-table-column label="每小时单价" prop="hourlyRate" width="120" align="right">
+          <template #default="scope">
+            <span class="text-red-600 font-medium">¥{{ scope.row.hourlyRate }}/小时</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="状态" prop="status" width="80" align="center">
+          <template #default="scope">
+            <el-tag :type="getWorkerStatusType(scope.row.status)">
+              {{ scope.row.status }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="添加时间" prop="createTime" width="160" show-overflow-tooltip>
+          <template #default="scope">
+            {{ formatDateTime(scope.row.createTime) }}
+          </template>
+        </el-table-column>
+      </el-table>
+      
+      <pagination
+        v-if="workerTotal > 0"
+        v-model:total="workerTotal"
+        v-model:page="workerQueryParams.page"
+        v-model:limit="workerQueryParams.limit"
+        @pagination="handleWorkerQuery"
+      />
+    </el-dialog>
   </div>
 </template>
 
@@ -328,6 +456,32 @@ const dateRange = ref([])
 const memberBalance = ref(0)
 const hourlyRate = ref(0)
 
+// 会员选择相关
+const showMemberDialog = ref(false)
+const memberList = ref<MemberVO[]>([])
+const memberLoading = ref(false)
+const memberTotal = ref(0)
+const memberSearchKeyword = ref('')
+const selectedMemberText = ref('')
+const memberQueryParams = reactive({
+  page: 1,
+  limit: 10,
+  keyword: ''
+})
+
+// 打手选择相关
+const showWorkerDialog = ref(false)
+const workerList = ref<WorkerVO[]>([])
+const workerLoading = ref(false)
+const workerTotal = ref(0)
+const workerSearchKeyword = ref('')
+const selectedWorkerText = ref('')
+const workerQueryParams = reactive({
+  page: 1,
+  limit: 10,
+  keyword: ''
+})
+
 // 查询参数
 const queryParams = reactive({
   page: 1,
@@ -351,7 +505,7 @@ const formData = reactive<OrderForm>({
   workerId: '',
   serviceHours: 1,
   amount: 0,
-  payMethod: 'balance',
+  payMethod: 'scan', // 默认使用扫码支付
   remark: ''
 })
 
@@ -391,7 +545,8 @@ const rules: FormRules = {
 const getPaymentMethodType = (method: string): 'success' | 'primary' | 'warning' | 'info' | 'danger' => {
   const typeMap: Record<string, 'success' | 'primary' | 'warning' | 'info' | 'danger'> = {
     balance: 'warning',
-    qrcode: 'success'
+    scan: 'success',
+    qrcode: 'success' // 兼容旧值
   }
   return typeMap[method] || 'info'
 }
@@ -400,9 +555,60 @@ const getPaymentMethodType = (method: string): 'success' | 'primary' | 'warning'
 const getPaymentMethodText = (method: string) => {
   const textMap: Record<string, string> = {
     balance: '余额支付',
-    qrcode: '扫码支付'
+    scan: '扫码支付',
+    qrcode: '扫码支付' // 兼容旧值
   }
   return textMap[method] || '未知';
+}
+
+// 会员状态类型
+const getMemberStatusType = (status: string): 'success' | 'danger' | 'warning' | 'info' => {
+  const typeMap: Record<string, 'success' | 'danger' | 'warning' | 'info'> = {
+    active: 'success',
+    inactive: 'danger',
+    pending: 'warning'
+  }
+  return typeMap[status] || 'info'
+}
+
+// 会员状态文本
+const getMemberStatusText = (status: string) => {
+  const textMap: Record<string, string> = {
+    active: '正常',
+    inactive: '禁用',
+    pending: '待审核'
+  }
+  return textMap[status] || '未知'
+}
+
+// 打手状态类型
+const getWorkerStatusType = (status: string): 'success' | 'danger' | 'warning' | 'info' => {
+  const typeMap: Record<string, 'success' | 'danger' | 'warning' | 'info'> = {
+    '可用': 'success',
+    '忙碌': 'warning',
+    '休息': 'info',
+    '禁用': 'danger'
+  }
+  return typeMap[status] || 'info'
+}
+
+
+
+// 时间格式化函数
+const formatDateTime = (dateStr: string) => {
+  if (!dateStr) return ''
+  const date = new Date(dateStr)
+  // 转换为北京时间（UTC+8）
+  const beijingTime = new Date(date.getTime() + 8 * 60 * 60 * 1000)
+  return beijingTime.toLocaleString('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  })
 }
 
 // 查询
@@ -435,48 +641,84 @@ const handleResetQuery = () => {
   handleQuery()
 }
 
-// 搜索会员
-const searchMembers = async (query: string) => {
-  if (query) {
-    try {
-      const result = await MemberAPI.getPage({ keywords: query, pageNum: 1, pageSize: 10 })
-      memberOptions.value = result.list
-    } catch (error) {
-      console.error('搜索会员失败:', error)
-    }
+// 会员选择相关方法
+const handleMemberSearch = () => {
+  memberQueryParams.keyword = memberSearchKeyword.value
+  memberQueryParams.page = 1
+  handleMemberQuery()
+}
+
+const handleMemberQuery = async () => {
+  memberLoading.value = true
+  try {
+    const result = await MemberAPI.getPage({
+      keyword: memberQueryParams.keyword,
+      page: memberQueryParams.page,
+      limit: memberQueryParams.limit
+    })
+    memberList.value = result.list
+    memberTotal.value = result.total
+  } catch (error) {
+    console.error('获取会员列表失败:', error)
+    ElMessage.error('获取会员列表失败')
+  } finally {
+    memberLoading.value = false
   }
 }
 
-// 搜索打手
-const searchWorkers = async (query: string) => {
-  if (query) {
-    try {
-      const result = await WorkerAPI.getPage({ keywords: query, pageNum: 1, pageSize: 10 })
-      workerOptions.value = result.list
-    } catch (error) {
-      console.error('搜索打手失败:', error)
-    }
-  }
-}
-
-// 会员变更
-const handleMemberChange = (memberId: string) => {
-  const member = memberOptions.value.find(m => m.id === memberId)
-  if (member) {
-    memberBalance.value = member.balance
-  }
+const handleMemberSelect = (row: MemberVO) => {
+  formData.memberId = row.id
+  memberBalance.value = row.balance
+  selectedMemberText.value = `${row.nickname} (${row.username})`
+  showMemberDialog.value = false
   calculateAmount()
 }
 
-// 打手变更
-const handleWorkerChange = async (workerId: string) => {
-  console.log('打手变更:', workerId);
-  const worker = workerOptions.value.find(w => w.id === workerId)
-  if (worker) {
-    hourlyRate.value = worker.hourlyRate
-    console.log('设置小时费率:', worker.hourlyRate);
+const handleCloseMemberDialog = () => {
+  showMemberDialog.value = false
+  memberSearchKeyword.value = ''
+  memberQueryParams.keyword = ''
+  memberQueryParams.page = 1
+}
+
+// 打手选择相关方法
+const handleWorkerSearch = () => {
+  workerQueryParams.keyword = workerSearchKeyword.value
+  workerQueryParams.page = 1
+  handleWorkerQuery()
+}
+
+const handleWorkerQuery = async () => {
+  workerLoading.value = true
+  try {
+    const result = await WorkerAPI.getPage({
+      keyword: workerQueryParams.keyword,
+      page: workerQueryParams.page,
+      limit: workerQueryParams.limit
+    })
+    workerList.value = result.list
+    workerTotal.value = result.total
+  } catch (error) {
+    console.error('获取打手列表失败:', error)
+    ElMessage.error('获取打手列表失败')
+  } finally {
+    workerLoading.value = false
   }
-  await calculateAmount()
+}
+
+const handleWorkerSelect = (row: WorkerVO) => {
+  formData.workerId = row.id
+  hourlyRate.value = row.hourlyRate
+  selectedWorkerText.value = `${row.nickname} (¥${row.hourlyRate}/小时)`
+  showWorkerDialog.value = false
+  calculateAmount()
+}
+
+const handleCloseWorkerDialog = () => {
+  showWorkerDialog.value = false
+  workerSearchKeyword.value = ''
+  workerQueryParams.keyword = ''
+  workerQueryParams.page = 1
 }
 
 // 计算金额
@@ -501,10 +743,15 @@ const calculateAmount = async () => {
 // 打开弹窗
 const handleOpenDialog = async (id?: string) => {
   dialog.visible = true
+  // 重置选择文本
+  selectedMemberText.value = ''
+  selectedWorkerText.value = ''
+  
   if (id) {
     dialog.title = '编辑订单'
     try {
-      const { data } = await OrderAPI.getDetail(id)
+      const data = await OrderAPI.getDetail(id)
+      console.log('获取到的订单详情:', data);
       Object.assign(formData, {
         id: data.id,
         memberId: data.memberId,
@@ -514,13 +761,12 @@ const handleOpenDialog = async (id?: string) => {
         payMethod: data.payMethod,
         remark: data.remark
       })
-      // 加载会员和打手信息
-      if (data.memberUsername) {
-        await searchMembers(data.memberUsername)
-      }
-      if (data.workerUsername) {
-        await searchWorkers(data.workerUsername)
-      }
+      // 设置选中文本
+      selectedMemberText.value = `${data.memberNickname} (${data.memberUsername})`
+      selectedWorkerText.value = `${data.workerNickname} (¥${data.amount / data.serviceHours}/小时)`
+      // 设置余额和单价
+      memberBalance.value = 0 // 编辑时暂时设为0，实际应该从会员详情获取
+      hourlyRate.value = data.amount / data.serviceHours
     } catch (error) {
       console.error('获取订单详情失败:', error)
       ElMessage.error('获取订单详情失败')
@@ -545,8 +791,11 @@ const handleOpenDialog = async (id?: string) => {
 const handleCloseDialog = () => {
   dialog.visible = false
   orderFormRef.value?.resetFields()
-  memberOptions.value = []
-  workerOptions.value = []
+  // 清理选择相关数据
+  selectedMemberText.value = ''
+  selectedWorkerText.value = ''
+  memberBalance.value = 0
+  hourlyRate.value = 0
 }
 
 // 提交表单
@@ -641,6 +890,9 @@ const loadStats = async () => {
 onMounted(async () => {
   await handleQuery()
   await loadStats()
+  // 初始化会员和打手列表
+  await handleMemberQuery()
+  await handleWorkerQuery()
 })
 </script>
 

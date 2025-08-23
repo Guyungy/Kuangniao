@@ -13,10 +13,10 @@
         </el-form-item>
         <el-form-item label="状态" prop="status">
           <el-select v-model="queryParams.status" placeholder="请选择" clearable style="width: 120px">
-            <el-option label="可用" value="available" />
-            <el-option label="忙碌" value="busy" />
-            <el-option label="休息" value="rest" />
-            <el-option label="禁用" value="disabled" />
+            <el-option label="可用" value="可用" />
+            <el-option label="忙碌" value="忙碌" />
+            <el-option label="休息" value="休息" />
+            <el-option label="禁用" value="禁用" />
           </el-select>
         </el-form-item>
         <el-form-item label="注册时间">
@@ -67,7 +67,7 @@
             </el-avatar>
           </template>
         </el-table-column>
-        <el-table-column label="基本信息" width="300">
+        <el-table-column label="基本信息" width="250">
           <template #default="scope">
             <div>
               <div class="flex items-center mb-1">
@@ -95,7 +95,7 @@
             </div>
           </template>
         </el-table-column>
-        <el-table-column label="小时费率" width="120" align="center">
+        <el-table-column label="小时费率" width="100" align="center">
           <template #default="scope">
             <div class="text-center">
               <div class="text-green-600 font-bold text-lg">
@@ -104,14 +104,14 @@
             </div>
           </template>
         </el-table-column>
-        <el-table-column label="状态" width="100" align="center">
+        <el-table-column label="状态" width="80" align="center">
           <template #default="scope">
             <el-tag :type="getStatusType(scope.row.status)" size="small">
               {{ getStatusText(scope.row.status) }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="业绩统计" width="150" align="center">
+        <el-table-column label="业绩统计" width="120" align="center">
           <template #default="scope">
             <div class="text-center">
               <div class="text-blue-600 font-bold text-lg mb-1">
@@ -123,7 +123,7 @@
             </div>
           </template>
         </el-table-column>
-        <el-table-column label="银行信息" width="180">
+        <el-table-column label="银行信息" width="150">
           <template #default="scope">
             <div>
               <div class="font-medium text-sm">{{ scope.row.bankName }}</div>
@@ -132,14 +132,14 @@
             </div>
           </template>
         </el-table-column>
-        <el-table-column label="注册时间" prop="createTime" width="120" align="center">
+        <el-table-column label="注册时间" prop="createTime" width="110" align="center">
           <template #default="scope">
             <div class="text-center text-sm text-gray-600">
               {{ formatDate(scope.row.createTime) }}
             </div>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="180" align="center">
+        <el-table-column label="操作" width="150" align="center">
           <template #default="scope">
             <div class="flex flex-col gap-1">
               <el-button link type="primary" size="small" @click="handleOpenDialog(scope.row.id)">
@@ -232,8 +232,9 @@
               <el-col :span="12">
                 <el-form-item label="状态" prop="status">
                   <el-select v-model="formData.status" placeholder="请选择状态" style="width: 100%">
-                    <el-option label="在职" value="在职" />
-                    <el-option label="待审核" value="待审核" />
+                    <el-option label="可用" value="可用" />
+                    <el-option label="忙碌" value="忙碌" />
+                    <el-option label="休息" value="休息" />
                     <el-option label="禁用" value="禁用" />
                   </el-select>
                 </el-form-item>
@@ -646,8 +647,9 @@ const maskName = (name: string) => {
 // 状态类型
 const getStatusType = (status: string): 'success' | 'warning' | 'info' | 'danger' => {
   const typeMap: Record<string, 'success' | 'warning' | 'info' | 'danger'> = {
-    '在职': 'success',
-    '待审核': 'warning',
+    '可用': 'success',
+    '忙碌': 'warning',
+    '休息': 'info',
     '禁用': 'danger'
   }
   return typeMap[status] || 'info'
@@ -656,8 +658,9 @@ const getStatusType = (status: string): 'success' | 'warning' | 'info' | 'danger
 // 状态文本
 const getStatusText = (status: string) => {
   const textMap: Record<string, string> = {
-    '在职': '在职',
-    '待审核': '待审核',
+    '可用': '可用',
+    '忙碌': '忙碌',
+    '休息': '休息',
     '禁用': '禁用'
   }
   return textMap[status] || status

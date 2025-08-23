@@ -5,7 +5,7 @@
         <el-form-item label="关键词" prop="keywords">
           <el-input
             v-model="queryParams.keywords"
-            placeholder="会员昵称/手机号"
+            placeholder="用户名/昵称/手机号"
             clearable
             style="width: 200px"
             @keyup.enter="handleQuery"
@@ -43,19 +43,20 @@
       </template>
 
       <el-table v-loading="loading" :data="memberList" stripe>
-        <el-table-column label="会员昵称" prop="nickname" min-width="120" />
-        <el-table-column label="手机号" prop="phone" width="120" />
+        <el-table-column label="用户名" prop="username" width="120" show-overflow-tooltip />
+        <el-table-column label="昵称" prop="nickname" width="120" show-overflow-tooltip />
+        <el-table-column label="手机号" prop="phone" width="130" show-overflow-tooltip />
         <el-table-column label="余额" prop="balance" width="100" align="right">
           <template #default="scope">
             <span class="text-green-600">¥{{ scope.row.balance }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="累计充值" prop="totalRecharge" width="100" align="right">
+        <el-table-column label="累计充值" prop="totalRecharge" width="110" align="right">
           <template #default="scope">
             <span class="text-blue-600">¥{{ scope.row.totalRecharge }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="累计消费" prop="totalConsume" width="100" align="right">
+        <el-table-column label="累计消费" prop="totalConsume" width="110" align="right">
           <template #default="scope">
             <span class="text-orange-600">¥{{ scope.row.totalConsume }}</span>
           </template>
@@ -67,8 +68,12 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="注册时间" prop="createdAt" width="160" />
-        <el-table-column label="操作" width="200" align="center">
+        <el-table-column label="注册时间" prop="createdAt" width="160" show-overflow-tooltip>
+          <template #default="scope">
+            {{ formatDateTime(scope.row.createdAt) }}
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" width="180" align="center">
           <template #default="scope">
             <el-button link type="primary" @click="handleOpenDialog(scope.row.id)">
               <i-ep-edit />编辑
@@ -138,6 +143,7 @@
       @close="detailDialog.visible = false"
     >
       <el-descriptions :column="2" border>
+        <el-descriptions-item label="用户名">{{ detailData.username }}</el-descriptions-item>
         <el-descriptions-item label="会员昵称">{{ detailData.nickname }}</el-descriptions-item>
         <el-descriptions-item label="手机号">{{ detailData.phone }}</el-descriptions-item>
         <el-descriptions-item label="当前余额">
@@ -154,7 +160,7 @@
             {{ detailData.status === 'active' ? '正常' : '禁用' }}
           </el-tag>
         </el-descriptions-item>
-        <el-descriptions-item label="注册时间" :span="2">{{ detailData.createdAt }}</el-descriptions-item>
+                 <el-descriptions-item label="注册时间" :span="2">{{ formatDateTime(detailData.createdAt) }}</el-descriptions-item>
       </el-descriptions>
 
       <el-tabs v-model="activeTab" class="mt-4">
@@ -166,7 +172,11 @@
               </template>
             </el-table-column>
             <el-table-column label="支付方式" prop="paymentMethod" width="100" />
-            <el-table-column label="充值时间" prop="createdAt" width="160" />
+                         <el-table-column label="充值时间" prop="createdAt" width="160">
+               <template #default="scope">
+                 {{ formatDateTime(scope.row.createdAt) }}
+               </template>
+             </el-table-column>
             <el-table-column label="备注" prop="remark" />
           </el-table>
         </el-tab-pane>
@@ -184,7 +194,11 @@
                 <span class="text-red-600">-¥{{ scope.row.actualAmount }}</span>
               </template>
             </el-table-column>
-            <el-table-column label="下单时间" prop="createdAt" width="160" />
+                         <el-table-column label="下单时间" prop="createdAt" width="160">
+               <template #default="scope">
+                 {{ formatDateTime(scope.row.createdAt) }}
+               </template>
+             </el-table-column>
           </el-table>
         </el-tab-pane>
       </el-tabs>
@@ -241,6 +255,7 @@ const formData = reactive<MemberForm>({
 })
 
 const detailData = reactive({
+  username: '',
   nickname: '',
   phone: '',
   balance: 0,
@@ -260,6 +275,23 @@ const rules: FormRules = {
     { pattern: /^1[3-9]\d{9}$/, message: '请输入正确的手机号', trigger: 'blur' }
   ],
   status: [{ required: true, message: '请选择状态', trigger: 'change' }]
+}
+
+// 时间格式化函数
+const formatDateTime = (dateStr: string) => {
+  if (!dateStr) return ''
+  const date = new Date(dateStr)
+  // 转换为北京时间（UTC+8）
+  const beijingTime = new Date(date.getTime() + 8 * 60 * 60 * 1000)
+  return beijingTime.toLocaleString('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  })
 }
 
 // 查询

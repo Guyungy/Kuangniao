@@ -78,6 +78,7 @@ router.get('/', [
     // 搜索会员或打手信息
     if (keyword) {
       memberWhere[Op.or] = [
+        { username: { [Op.like]: `%${keyword}%` } },
         { nickname: { [Op.like]: `%${keyword}%` } },
         { phone: { [Op.like]: `%${keyword}%` } }
       ];
@@ -300,7 +301,7 @@ router.post('/', [
 
     console.log('检查打手是否可以接单...');
     console.log('打手状态:', worker.status);
-    console.log('WorkerStatus.ACTIVE:', WorkerStatus.ACTIVE);
+    console.log('WorkerStatus.AVAILABLE:', WorkerStatus.AVAILABLE);
     console.log('canTakeOrder结果:', worker.canTakeOrder());
     if (!worker.canTakeOrder()) {
       console.log('打手不可接单');

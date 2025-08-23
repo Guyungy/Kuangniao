@@ -52,6 +52,8 @@ export interface OrderStats {
 
 // 数据映射函数
 function mapOrderFromBackend(item: any): OrderVO {
+  console.log('映射订单数据，原始数据:', item);
+  
   // 支付方式映射
   const getPayMethodText = (method: string) => {
     const methodMap: Record<string, string> = {
@@ -62,7 +64,7 @@ function mapOrderFromBackend(item: any): OrderVO {
     return methodMap[method] || method;
   };
 
-  return {
+  const mappedData = {
     id: String(item.id),
     orderNo: item.order_number || item.order_no || item.orderNo || '',
     memberId: String(item.member_id || item.memberId || ''),
@@ -77,6 +79,9 @@ function mapOrderFromBackend(item: any): OrderVO {
     createTime: item.created_at || item.createdAt || item.createTime || '',
     remark: item.remark || ''
   };
+  
+  console.log('映射后的订单数据:', mappedData);
+  return mappedData;
 }
 
 const OrderAPI = {
@@ -89,7 +94,15 @@ const OrderAPI = {
     if (params.page) backendParams.page = params.page;
     if (params.limit) backendParams.limit = params.limit;
     if (params.keyword && params.keyword.trim()) backendParams.keyword = params.keyword.trim();
-    if (params.payMethod && params.payMethod.trim()) backendParams.pay_method = params.payMethod.trim();
+    if (params.payMethod && params.payMethod.trim()) {
+      // 统一支付方式映射
+      const payMethod = params.payMethod.trim();
+      if (payMethod === 'qrcode') {
+        backendParams.pay_method = 'scan';
+      } else {
+        backendParams.pay_method = payMethod;
+      }
+    }
     if (params.startTime && params.startTime.trim()) backendParams.start_date = params.startTime.trim();
     if (params.endTime && params.endTime.trim()) backendParams.end_date = params.endTime.trim();
 
@@ -128,8 +141,13 @@ const OrderAPI = {
       url: `${ORDER_BASE_URL}/${id}`,
       method: 'get'
     }).then(response => {
-      // response 现在是实际数据，直接使用
-      if (response) {
+      console.log('订单详情API响应:', response);
+      
+      // 后端返回格式: { code: '00000', message: '...', data: {...} }
+      if (response && response.data) {
+        return mapOrderFromBackend(response.data);
+      } else if (response) {
+        // 兼容直接返回数据的情况
         return mapOrderFromBackend(response);
       }
       throw new Error('订单详情数据格式错误');
@@ -154,7 +172,8 @@ const OrderAPI = {
     if (data.payMethod === 'balance') {
       backendData.pay_balance = data.amount;
       backendData.pay_scan = 0;
-    } else if (data.payMethod === 'scan') {
+    } else if (data.payMethod === 'qrcode' || data.payMethod === 'scan') {
+      backendData.pay_method = 'scan'; // 统一映射为后端期望的值
       backendData.pay_balance = 0;
       backendData.pay_scan = data.amount;
     } else if (data.payMethod === 'mixed') {
@@ -170,17 +189,17 @@ const OrderAPI = {
       originalData: data
     });
 
-    return request({
+    return request<any, any>({
       url: ORDER_BASE_URL,
       method: 'post',
       data: backendData
-    }).then(response => {
+    }).then((response: any) => {
       console.log('订单创建API响应:', response);
       
-      // 验证响应数据
-      if (response && response.data && response.data.id) {
-        console.log('订单创建成功，返回订单记录:', response.data);
-        return response.data;
+      // 验证响应数据 - request工具已经解包了data字段，response本身就是订单对象
+      if (response && response.id) {
+        console.log('订单创建成功，返回订单记录:', response);
+        return response;
       } else {
         console.error('订单创建响应数据格式错误:', response);
         throw new Error('订单创建响应数据格式错误');
@@ -249,7 +268,15 @@ const OrderAPI = {
     if (params.page) backendParams.page = params.page;
     if (params.limit) backendParams.limit = params.limit;
     if (params.keyword && params.keyword.trim()) backendParams.keyword = params.keyword.trim();
-    if (params.payMethod && params.payMethod.trim()) backendParams.pay_method = params.payMethod.trim();
+    if (params.payMethod && params.payMethod.trim()) {
+      // 统一支付方式映射
+      const payMethod = params.payMethod.trim();
+      if (payMethod === 'qrcode') {
+        backendParams.pay_method = 'scan';
+      } else {
+        backendParams.pay_method = payMethod;
+      }
+    }
     if (params.startTime && params.startTime.trim()) backendParams.start_date = params.startTime.trim();
     if (params.endTime && params.endTime.trim()) backendParams.end_date = params.endTime.trim();
 

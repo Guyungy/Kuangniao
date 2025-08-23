@@ -9,8 +9,9 @@ export enum WorkerType {
 }
 
 export enum WorkerStatus {
-  PENDING = '待审核',
-  ACTIVE = '在职',
+  AVAILABLE = '可用',
+  BUSY = '忙碌',
+  REST = '休息',
   DISABLED = '禁用'
 }
 
@@ -98,7 +99,7 @@ export class Worker extends Model {
   @Column({
     type: DataType.ENUM(...Object.values(WorkerStatus)),
     allowNull: false,
-    defaultValue: WorkerStatus.PENDING,
+    defaultValue: WorkerStatus.AVAILABLE,
     comment: '状态'
   })
   status!: WorkerStatus;
@@ -158,6 +159,6 @@ export class Worker extends Model {
 
   // 检查是否可以接单
   canTakeOrder(): boolean {
-    return this.status === WorkerStatus.ACTIVE || this.status === WorkerStatus.PENDING;
+    return this.status === WorkerStatus.AVAILABLE;
   }
 }
