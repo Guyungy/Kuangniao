@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>会员API测试</title>
+</head>
+<body>
+    <h1>会员API测试</h1>
+    
+    <div>
+        <h2>1. 登录获取Token</h2>
+        <button onclick="login()">登录</button>
+        <div id="loginResult"></div>
+    </div>
+    
+    <div>
+        <h2>2. 创建会员</h2>
+        <button onclick="createMember()">创建会员</button>
+        <div id="createResult"></div>
+    </div>
+    
+    <div>
+        <h2>3. 获取会员列表</h2>
+        <button onclick="getMembers()">获取列表</button>
+        <div id="listResult"></div>
+    </div>
+
+    <script>
+        let token = '';
+        
+        async function login() {
+            try {
+                const response = await fetch('http://localhost:10000/api/v1/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        username: 'admin',
+                        password: '123456'
+                    })
+                });
+                
+                const data = await response.json();
+                console.log('登录响应:', data);
+                
+                if (data.code === '00000') {
+                    token = data.data.accessToken;
+                    document.getElementById('loginResult').innerHTML = 
+                        `<p style="color: green;">登录成功！Token: ${token.substring(0, 50)}...</p>`;
+                } else {
+                    document.getElementById('loginResult').innerHTML = 
+                        `<p style="color: red;">登录失败: ${data.message}</p>`;
+                }
+            } catch (error) {
+                console.error('登录错误:', error);
+                document.getElementById('loginResult').innerHTML = 
+                    `<p style="color: red;">登录错误: ${error.message}</p>`;
+            }
+        }
+        
+        async function createMember() {
+            if (!token) {
+                alert('请先登录获取Token');
+                return;
+            }
+            
+            try {
+                const memberData = {
+                    username: 'testuser' + Date.now(),
+                    nickname: '测试用户' + Date.now(),
+                    phone: '13800138000',
+                    status: 'active'
+                };
+                
+                console.log('发送的会员数据:', memberData);
+                
+                const response = await fetch('http://localhost:10000/api/v1/members', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify(memberData)
+                });
+                
+                const data = await response.json();
+                console.log('创建会员响应:', data);
+                
+                if (data.code === '00000') {
+                    document.getElementById('createResult').innerHTML = 
+                        `<p style="color: green;">创建成功！会员ID: ${data.data.id}</p>`;
+                } else {
+                    document.getElementById('createResult').innerHTML = 
+                        `<p style="color: red;">创建失败: ${data.message}</p>`;
+                }
+            } catch (error) {
+                console.error('创建会员错误:', error);
+                document.getElementById('createResult').innerHTML = 
+                    `<p style="color: red;">创建错误: ${error.message}</p>`;
+            }
+        }
+        
+        async function getMembers() {
+            if (!token) {
+                alert('请先登录获取Token');
+                return;
+            }
+            
+            try {
+                const response = await fetch('http://localhost:10000/api/v1/members?page=1&limit=10', {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                const data = await response.json();
+                console.log('获取会员列表响应:', data);
+                
+                if (data.code === '00000') {
+                    document.getElementById('listResult').innerHTML = 
+                        `<p style="color: green;">获取成功！共 ${data.data.total} 个会员</p>
+                         <pre>${JSON.stringify(data.data.list, null, 2)}</pre>`;
+                } else {
+                    document.getElementById('listResult').innerHTML = 
+                        `<p style="color: red;">获取失败: ${data.message}</p>`;
+                }
+            } catch (error) {
+                console.error('获取会员列表错误:', error);
+                document.getElementById('listResult').innerHTML = 
+                    `<p style="color: red;">获取错误: ${error.message}</p>`;
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,4 @@
+/payboard-backend/node_modules
+/node_modules/@babel
+/node_modules
+/payboard-backend/dist
