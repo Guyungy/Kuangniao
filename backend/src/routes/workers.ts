@@ -115,7 +115,7 @@ router.get('/stats', async (req: Request, res: Response): Promise<void> => {
     // 检查Worker模型
     console.log('Worker模型:', typeof Worker);
     console.log('WorkerStatus枚举:', WorkerStatus);
-    console.log('WorkerStatus.ACTIVE值:', WorkerStatus.ACTIVE);
+    console.log('WorkerStatus.AVAILABLE值:', WorkerStatus.AVAILABLE);
     
     // 总打手数
     console.log('开始查询总打手数...');
@@ -125,9 +125,9 @@ router.get('/stats', async (req: Request, res: Response): Promise<void> => {
     // 可用打手数（状态为在职）
     console.log('开始查询可用打手数...');
     const availableWorkers = await Worker.count({
-      where: { status: WorkerStatus.ACTIVE }
+      where: { status: WorkerStatus.AVAILABLE }
     });
-    console.log('可用打手数查询成功:', availableWorkers, '状态条件:', WorkerStatus.ACTIVE);
+    console.log('可用打手数查询成功:', availableWorkers, '状态条件:', WorkerStatus.AVAILABLE);
 
     // 简化忙碌打手查询
     const busyWorkers = 0; // 暂时设为0，避免复杂查询
@@ -335,7 +335,7 @@ router.post('/', [
       account_name,
       price_hour,
       type,
-      status = WorkerStatus.PENDING,
+      status = WorkerStatus.AVAILABLE,
       remark
     } = req.body;
 
@@ -773,7 +773,7 @@ router.get('/available/list', [
 
     const type = req.query.type as WorkerType;
     const where: any = {
-      status: WorkerStatus.ACTIVE
+      status: WorkerStatus.AVAILABLE
     };
 
     if (type) {
