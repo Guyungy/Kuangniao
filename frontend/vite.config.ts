@@ -49,7 +49,7 @@ export default defineConfig(({ mode }: ConfigEnv): UserConfig => {
         // 代理 /dev-api 的请求
         [env.VITE_APP_BASE_API]: {
           changeOrigin: true,
-          // 代理目标地址：http://localhost:10000
+          // 代理目标地址：http://localhost:10001
           target: env.VITE_APP_API_URL,
           rewrite: (path: string) => {
             const newPath = path.replace(new RegExp("^" + env.VITE_APP_BASE_API), "/api/v1");

@@ -73,7 +73,7 @@
             {{ formatDateTime(scope.row.createdAt) }}
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="220" align="center">
+                 <el-table-column label="操作" width="180" align="center">
           <template #default="scope">
             <el-button link type="primary" @click="handleOpenDialog(scope.row.id)">
               <i-ep-edit />编辑
@@ -97,9 +97,7 @@
             >
               <i-ep-unlock />启用
             </el-button>
-            <el-button link type="danger" @click="handleDelete(scope.row.id)">
-              <i-ep-delete />删除
-            </el-button>
+            
           </template>
         </el-table-column>
       </el-table>
@@ -405,9 +403,11 @@ const handleSubmit = () => {
         }
         handleCloseDialog()
         handleQuery()
-      } catch (error) {
+      } catch (error: any) {
         console.error('保存会员失败:', error)
-        ElMessage.error('保存失败')
+        // 显示具体的错误信息
+        const errorMessage = error?.message || '保存失败'
+        ElMessage.error(errorMessage)
       }
     }
   })
@@ -424,9 +424,10 @@ const handleViewDetail = async (row: MemberVO) => {
     // 获取消费记录
     const consumeResponse = await MemberAPI.getConsumeRecords(row.id)
     orderList.value = consumeResponse.list
-  } catch (error) {
+  } catch (error: any) {
     console.error('获取会员记录失败:', error)
-    ElMessage.error('获取会员记录失败')
+    const errorMessage = error?.message || '获取会员记录失败'
+    ElMessage.error(errorMessage)
   }
 }
 
@@ -442,30 +443,15 @@ const handleToggleStatus = (id: string, status: number) => {
       await MemberAPI.toggleStatus(id, status)
       ElMessage.success(`${action}成功`)
       handleQuery()
-    } catch (error) {
+    } catch (error: any) {
       console.error(`${action}会员失败:`, error)
-      ElMessage.error(`${action}失败`)
+      const errorMessage = error?.message || `${action}失败`
+      ElMessage.error(errorMessage)
     }
   })
 }
 
-// 删除
-const handleDelete = (id: string) => {
-  ElMessageBox.confirm('确认删除该会员吗？', '提示', {
-    confirmButtonText: '确定',
-    cancelButtonText: '取消',
-    type: 'warning'
-  }).then(async () => {
-    try {
-      await MemberAPI.delete(id)
-      ElMessage.success('删除成功')
-      handleQuery()
-    } catch (error) {
-      console.error('删除会员失败:', error)
-      ElMessage.error('删除失败')
-    }
-  })
-}
+
 
 // 初始化
 onMounted(() => {

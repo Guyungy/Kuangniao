@@ -83,7 +83,7 @@ httpRequest.interceptors.response.use(
       });
       // 对于304响应，我们不应该返回空数组，而是让axios正常处理
       // 这样前端就能获取到缓存的数据
-      const { code, data, msg } = response.data;
+      const { code, data, msg, message } = response.data as any;
       
       if (code === ResultEnum.SUCCESS || code === 200 || code === "00000") {
         console.log('✅ 304响应中获取到缓存数据:', data);
@@ -95,7 +95,7 @@ httpRequest.interceptors.response.use(
       return [];
     }
 
-    const { code, data, msg } = response.data;
+    const { code, data, msg, message } = response.data as any;
 
     // 请求成功 - 支持字符串和数字格式的响应码
     if (code === ResultEnum.SUCCESS || code === 200 || code === "00000") {
@@ -109,30 +109,13 @@ httpRequest.interceptors.response.use(
       return data; // 返回实际数据，而不是整个响应对象
     }
 
-    // 业务错误
-    const errorMessage = msg || "系统出错";
+    // 业务错误 - 直接显示后端返回的具体错误信息
+    const errorMessage = msg || message || "系统出错";
     
-    // 根据错误信息提供更友好的提示
-    let friendlyMessage = errorMessage;
-    
-    if (errorMessage.includes('数据库') || errorMessage.includes('Database') || errorMessage.includes('Connection')) {
-      friendlyMessage = "数据库连接异常，请稍后重试";
-    } else if (errorMessage.includes('参数') || errorMessage.includes('Parameter') || errorMessage.includes('validation')) {
-      friendlyMessage = "请求参数错误，请检查输入";
-    } else if (errorMessage.includes('权限') || errorMessage.includes('Permission') || errorMessage.includes('unauthorized')) {
-      friendlyMessage = "权限不足，请联系管理员";
-    } else if (errorMessage.includes('Token') || errorMessage.includes('token') || errorMessage.includes('登录')) {
-      friendlyMessage = "登录已过期，请重新登录";
-    } else if (errorMessage.includes('用户名') || errorMessage.includes('密码')) {
-      friendlyMessage = "用户名或密码错误";
-    } else if (errorMessage.includes('不存在') || errorMessage.includes('not found')) {
-      friendlyMessage = "请求的资源不存在";
-    }
-    
-    console.log('❌ 业务错误:', friendlyMessage);
-    console.log('错误详情:', { code, msg, data });
-    ElMessage.error(friendlyMessage);
-    return Promise.reject(new Error(friendlyMessage));
+    console.log('❌ 业务错误:', errorMessage);
+    console.log('错误详情:', { code, msg, message, data });
+    ElMessage.error(errorMessage);
+    return Promise.reject(new Error(errorMessage));
   },
   async (error) => {
     console.error("Response interceptor error:", error);
@@ -193,8 +176,18 @@ httpRequest.interceptors.response.use(
       return Promise.reject(new Error(errorMessage));
     }
 
-    const { code, msg } = responseData as ApiResponse;
-    const errorMessage = msg || "请求失败";
+    const { code, msg, message } = responseData as any;
+    // 优先使用 msg，如果没有则使用 message，最后使用默认值
+    const errorMessage = msg || message || "请求失败";
+
+    console.log('🔍 错误响应详情:', {
+      status: response.status,
+      code,
+      msg,
+      message,
+      finalErrorMessage: errorMessage,
+      responseData
+    });
 
     switch (code) {
       case ResultEnum.ACCESS_TOKEN_INVALID:
@@ -209,21 +202,10 @@ httpRequest.interceptors.response.use(
         return Promise.reject(new Error(errorMessage));
 
       default:
-        // 根据错误码提供更具体的错误信息
-        let specificMessage = errorMessage;
-        
-        if (errorMessage.includes('数据库') || errorMessage.includes('Database')) {
-          specificMessage = "数据库连接异常，请稍后重试";
-        } else if (errorMessage.includes('参数') || errorMessage.includes('Parameter')) {
-          specificMessage = "请求参数错误，请检查输入";
-        } else if (errorMessage.includes('权限') || errorMessage.includes('Permission')) {
-          specificMessage = "权限不足，请联系管理员";
-        } else if (errorMessage.includes('Token') || errorMessage.includes('token')) {
-          specificMessage = "登录已过期，请重新登录";
-        }
-        
-        ElMessage.error(specificMessage);
-        return Promise.reject(new Error(specificMessage));
+        // 直接显示后端返回的具体错误信息，不做额外处理
+        console.log('❌ 显示具体错误信息:', errorMessage);
+        ElMessage.error(errorMessage);
+        return Promise.reject(new Error(errorMessage));
     }
   }
 );

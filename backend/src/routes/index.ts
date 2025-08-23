@@ -60,7 +60,7 @@ router.get(`${API_PREFIX}`, (req, res) => {
             'GET /members/:id - 获取会员详情',
             'POST /members - 创建会员',
             'PUT /members/:id - 更新会员',
-            'DELETE /members/:id - 删除会员',
+
             'GET /members/:id/recharges - 获取会员充值记录',
             'GET /members/:id/orders - 获取会员订单记录'
           ]

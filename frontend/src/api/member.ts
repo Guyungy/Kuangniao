@@ -211,10 +211,10 @@ const MemberAPI = {
       method: 'post',
       data: payload
     }).then((response) => {
-      // 处理后端响应格式 { code: "00000", data: member }
+      // 响应拦截器已经处理了成功情况，response 就是会员数据
       console.log('创建会员API响应:', response);
-      if (response && response.data) {
-        return mapMemberFromBackend(response.data);
+      if (response) {
+        return mapMemberFromBackend(response);
       }
       throw new Error('创建会员响应格式错误');
     }).catch((error) => {
@@ -232,9 +232,9 @@ const MemberAPI = {
       method: 'put',
       data: payload
     }).then((response) => {
-      // 处理后端响应格式 { code: "00000", data: member }
-      if (response && response.data) {
-        return mapMemberFromBackend(response.data);
+      // 响应拦截器已经处理了成功情况，response 就是会员数据
+      if (response) {
+        return mapMemberFromBackend(response);
       }
       throw new Error('更新会员响应格式错误');
     }).catch((error) => {
@@ -243,22 +243,7 @@ const MemberAPI = {
     });
   },
 
-  /** 删除会员 */
-  delete(id: string) {
-    return request<any, any>({
-      url: `${MEMBER_BASE_URL}/${id}`,
-      method: 'delete'
-    }).then((response) => {
-      // 处理后端响应格式 { code: "00000", data: null }
-      if (response && response.code === '00000') {
-        return response;
-      }
-      throw new Error('删除会员响应格式错误');
-    }).catch((error) => {
-      console.error('删除会员失败:', error);
-      throw error;
-    });
-  },
+
 
   /** 切换会员状态（禁用/启用） */
   toggleStatus(id: string, status: number) {
@@ -287,12 +272,11 @@ const MemberAPI = {
       method: 'get',
       params: backendParams
     }).then((response) => {
-      // 处理后端响应格式 { code: "00000", data: { list: [], pagination: {} } }
-      if (response && response.data) {
-        const { list = [], pagination = {} } = response.data;
+      // 响应拦截器已经处理了成功情况，response 就是数据
+      if (response && response.list) {
         return {
-          list: Array.isArray(list) ? list.map(mapRechargeRecordFromBackend) : [],
-          total: Number(pagination.total ?? 0)
+          list: Array.isArray(response.list) ? response.list.map(mapRechargeRecordFromBackend) : [],
+          total: Number(response.pagination?.total ?? 0)
         };
       }
       return { list: [], total: 0 };
@@ -314,12 +298,11 @@ const MemberAPI = {
       method: 'get',
       params: backendParams
     }).then((response) => {
-      // 处理后端响应格式 { code: "00000", data: { list: [], pagination: {} } }
-      if (response && response.data) {
-        const { list = [], pagination = {} } = response.data;
+      // 响应拦截器已经处理了成功情况，response 就是数据
+      if (response && response.list) {
         return {
-          list: Array.isArray(list) ? list.map(mapConsumeRecordFromBackend) : [],
-          total: Number(pagination.total ?? 0)
+          list: Array.isArray(response.list) ? response.list.map(mapConsumeRecordFromBackend) : [],
+          total: Number(response.pagination?.total ?? 0)
         };
       }
       return { list: [], total: 0 };

@@ -1,5 +1,23 @@
 <template>
   <div class="app-container">
+    <!-- 调试信息显示区域 -->
+    <div v-if="showDebug" class="debug-info" style="background: #f0f9ff; border: 1px solid #0ea5e9; padding: 10px; margin-bottom: 10px; border-radius: 4px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+        <div style="font-weight: bold; color: #0ea5e9;">🐛 调试模式已开启</div>
+        <div>
+          <el-button size="small" type="primary" @click="testDebug">测试调试</el-button>
+          <el-button size="small" type="warning" @click="forceRefresh">强制刷新</el-button>
+        </div>
+      </div>
+      <div style="font-size: 12px; color: #0369a1;">
+        <div>页面状态: {{ debugStatus }}</div>
+        <div>会员列表长度: {{ memberList.length }}</div>
+        <div>打手列表长度: {{ workerList.length }}</div>
+        <div>订单列表长度: {{ orderList.length }}</div>
+        <div>当前时间: {{ new Date().toLocaleString() }}</div>
+      </div>
+    </div>
+    
     <div class="search-container">
       <el-form ref="queryFormRef" :model="queryParams" :inline="true">
         <el-form-item label="关键词" prop="keyword">
@@ -338,11 +356,15 @@
     <!-- 会员选择弹窗 -->
     <el-dialog
       v-model="showMemberDialog"
-      title="选择会员"
+      title="选择会员（仅显示正常状态）"
       width="900px"
       @close="handleCloseMemberDialog"
     >
       <div class="mb-4">
+        <div class="text-gray-500 text-sm mb-2">
+          <i-ep-info-filled class="mr-1" />
+          注意：被禁用的会员不会显示在此列表中，如需启用会员请前往会员管理页面
+        </div>
         <el-input
           v-model="memberSearchKeyword"
           placeholder="搜索会员昵称、用户名或手机号"
@@ -383,13 +405,7 @@
             <span class="text-red-600">¥{{ scope.row.totalConsume }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="状态" prop="status" width="80" align="center">
-          <template #default="scope">
-            <el-tag :type="getMemberStatusType(scope.row.status)">
-              {{ getMemberStatusText(scope.row.status) }}
-            </el-tag>
-          </template>
-        </el-table-column>
+
         <el-table-column label="注册时间" prop="createTime" width="160" show-overflow-tooltip>
           <template #default="scope">
             {{ formatDateTime(scope.row.createTime) }}
@@ -409,11 +425,15 @@
     <!-- 打手选择弹窗 -->
     <el-dialog
       v-model="showWorkerDialog"
-      title="选择打手"
+      title="选择打手（仅显示可用状态）"
       width="900px"
       @close="handleCloseWorkerDialog"
     >
       <div class="mb-4">
+        <div class="text-gray-500 text-sm mb-2">
+          <i-ep-info-filled class="mr-1" />
+          注意：不可用的打手不会显示在此列表中，如需启用打手请前往打手管理页面
+        </div>
         <el-input
           v-model="workerSearchKeyword"
           placeholder="搜索打手昵称、真实姓名或手机号"
@@ -444,13 +464,7 @@
             <span class="text-red-600 font-medium">¥{{ scope.row.hourlyRate }}/小时</span>
           </template>
         </el-table-column>
-        <el-table-column label="状态" prop="status" width="80" align="center">
-          <template #default="scope">
-            <el-tag :type="getWorkerStatusType(scope.row.status)">
-              {{ scope.row.status }}
-            </el-tag>
-          </template>
-        </el-table-column>
+
         <el-table-column label="添加时间" prop="createTime" width="160" show-overflow-tooltip>
           <template #default="scope">
             {{ formatDateTime(scope.row.createTime) }}
@@ -563,6 +577,35 @@ const statsData = reactive<OrderStats>({
   qrcodePayCount: 0
 })
 
+// 调试相关
+const showDebug = ref(true) // 始终显示调试信息
+const debugStatus = ref('初始化中...')
+
+// 调试函数
+const testDebug = () => {
+  console.log('=== 手动测试调试 ===');
+  console.log('当前状态:', debugStatus.value);
+  console.log('会员列表:', memberList.value);
+  console.log('打手列表:', workerList.value);
+  console.log('订单列表:', orderList.value);
+  debugStatus.value = '手动测试完成 - ' + new Date().toLocaleString();
+  ElMessage.success('调试测试完成，请查看控制台');
+}
+
+const forceRefresh = async () => {
+  debugStatus.value = '强制刷新中...';
+  try {
+    await handleQuery();
+    await handleMemberQuery();
+    await handleWorkerQuery();
+    debugStatus.value = '强制刷新完成 - ' + new Date().toLocaleString();
+    ElMessage.success('强制刷新完成');
+  } catch (error) {
+    debugStatus.value = '强制刷新失败: ' + (error as Error).message;
+    ElMessage.error('强制刷新失败');
+  }
+}
+
 // 计算属性
 const calculatedAmount = computed(() => {
   return (formData.serviceHours * hourlyRate.value).toFixed(2)
@@ -666,13 +709,35 @@ const handleQuery = async () => {
     queryParams.endTime = ''
   }
   
+  debugStatus.value = '查询订单中...'
+  console.log('=== 前端订单查询开始 ===');
+  console.log('查询参数:', queryParams);
+  console.log('日期范围:', dateRange.value);
+  
   loading.value = true
   try {
     const result = await OrderAPI.getPage(queryParams)
+    
+    console.log('=== 前端订单查询成功 ===');
+    console.log('API响应:', result);
+    console.log('订单列表长度:', result.list?.length);
+    console.log('总数:', result.total);
+    
     orderList.value = result.list
     total.value = result.total
+    
+    console.log('=== 数据更新完成 ===');
+    console.log('orderList长度:', orderList.value.length);
+    console.log('total值:', total.value);
+    
+    debugStatus.value = `订单查询完成: ${result.list?.length || 0}条`
+    
   } catch (error) {
-    console.error('获取订单列表失败:', error)
+    console.error('=== 前端订单查询失败 ===');
+    console.error('错误对象:', error);
+    console.error('错误消息:', (error as Error).message);
+    console.error('错误堆栈:', (error as Error).stack);
+    debugStatus.value = `订单查询失败: ${(error as Error).message}`
     ElMessage.error('获取订单列表失败')
   } finally {
     loading.value = false
@@ -695,16 +760,43 @@ const handleMemberSearch = () => {
 
 const handleMemberQuery = async () => {
   memberLoading.value = true
+  debugStatus.value = '查询会员中...'
   try {
-         const result = await MemberAPI.getPage({
-       keywords: memberQueryParams.keyword,
-       pageNum: memberQueryParams.page,
-       pageSize: memberQueryParams.limit
-     })
+    console.log('=== 前端会员查询开始 ===');
+    console.log('查询参数:', {
+      keywords: memberQueryParams.keyword,
+      pageNum: memberQueryParams.page,
+      pageSize: memberQueryParams.limit,
+      status: 1
+    });
+    
+    const result = await MemberAPI.getPage({
+      keywords: memberQueryParams.keyword,
+      pageNum: memberQueryParams.page,
+      pageSize: memberQueryParams.limit,
+      status: 1 // 只查询状态为正常的会员（1=正常，0=禁用）
+    })
+    
+    console.log('=== 前端会员查询成功 ===');
+    console.log('API响应:', result);
+    console.log('会员列表长度:', result.list?.length);
+    console.log('总数:', result.total);
+    
     memberList.value = result.list
     memberTotal.value = result.total
+    
+    console.log('=== 数据更新完成 ===');
+    console.log('memberList长度:', memberList.value.length);
+    console.log('memberTotal值:', memberTotal.value);
+    
+    debugStatus.value = `会员查询完成: ${result.list?.length || 0}条`
+    
   } catch (error) {
-    console.error('获取会员列表失败:', error)
+    console.error('=== 前端会员查询失败 ===');
+    console.error('错误对象:', error);
+    console.error('错误消息:', (error as Error).message);
+    console.error('错误堆栈:', (error as Error).stack);
+    debugStatus.value = `会员查询失败: ${(error as Error).message}`
     ElMessage.error('获取会员列表失败')
   } finally {
     memberLoading.value = false
@@ -712,9 +804,20 @@ const handleMemberQuery = async () => {
 }
 
 const handleMemberSelect = (row: MemberVO) => {
+  console.log('=== 前端会员选择 ===');
+  console.log('选中的会员:', row);
+  console.log('会员ID:', row.id);
+  console.log('会员余额:', row.balance);
+  
   formData.memberId = row.id
   memberBalance.value = row.balance
   selectedMemberText.value = `${row.nickname} (${row.username})`
+  
+  console.log('✅ 会员选择完成');
+  console.log('formData.memberId:', formData.memberId);
+  console.log('memberBalance:', memberBalance.value);
+  console.log('selectedMemberText:', selectedMemberText.value);
+  
   showMemberDialog.value = false
   calculateAmount()
 }
@@ -735,16 +838,44 @@ const handleWorkerSearch = () => {
 
 const handleWorkerQuery = async () => {
   workerLoading.value = true
+  debugStatus.value = '查询打手中...'
   try {
+    console.log('=== 前端打手查询开始 ===');
+    console.log('查询参数:', {
+      keyword: workerQueryParams.keyword,
+      page: workerQueryParams.page,
+      limit: workerQueryParams.limit,
+      status: 'available'
+    });
+    
     const result = await WorkerAPI.getPage({
       keyword: workerQueryParams.keyword,
       page: workerQueryParams.page,
-      limit: workerQueryParams.limit
+      limit: workerQueryParams.limit,
+      status: 'available' // 只查询状态为可用的打手
     })
+    
+    console.log('=== 前端打手查询成功 ===');
+    console.log('API响应:', result);
+    console.log('打手列表长度:', result.list?.length);
+    console.log('打手列表长度:', result.list?.length);
+    console.log('总数:', result.total);
+    
     workerList.value = result.list
     workerTotal.value = result.total
+    
+    console.log('=== 数据更新完成 ===');
+    console.log('workerList长度:', workerList.value.length);
+    console.log('workerTotal值:', workerTotal.value);
+    
+    debugStatus.value = `打手查询完成: ${result.list?.length || 0}条`
+    
   } catch (error) {
-    console.error('获取打手列表失败:', error)
+    console.error('=== 前端打手查询失败 ===');
+    console.error('错误对象:', error);
+    console.error('错误消息:', (error as Error).message);
+    console.error('错误堆栈:', (error as Error).stack);
+    debugStatus.value = `打手查询失败: ${(error as Error).message}`
     ElMessage.error('获取打手列表失败')
   } finally {
     workerLoading.value = false
@@ -752,9 +883,20 @@ const handleWorkerQuery = async () => {
 }
 
 const handleWorkerSelect = (row: WorkerVO) => {
+  console.log('=== 前端打手选择 ===');
+  console.log('选中的打手:', row);
+  console.log('打手ID:', row.id);
+  console.log('小时单价:', row.hourlyRate);
+  
   formData.workerId = row.id
   hourlyRate.value = row.hourlyRate
   selectedWorkerText.value = `${row.nickname} (¥${row.hourlyRate}/小时)`
+  
+  console.log('✅ 打手选择完成');
+  console.log('formData.workerId:', formData.workerId);
+  console.log('hourlyRate:', hourlyRate.value);
+  console.log('selectedWorkerText:', selectedWorkerText.value);
+  
   showWorkerDialog.value = false
   calculateAmount()
 }
@@ -768,35 +910,55 @@ const handleCloseWorkerDialog = () => {
 
 // 计算金额
 const calculateAmount = async () => {
-  console.log('计算金额开始:', { workerId: formData.workerId, serviceHours: formData.serviceHours });
+  console.log('=== 前端金额计算开始 ===');
+  console.log('计算参数:', { 
+    workerId: formData.workerId, 
+    serviceHours: formData.serviceHours,
+    hourlyRate: hourlyRate.value
+  });
+  
   if (formData.workerId && formData.serviceHours > 0) {
     try {
+      console.log('🔄 调用API计算金额...');
       const result = await OrderAPI.calculateAmount(formData.workerId, formData.serviceHours)
       formData.amount = result.amount
-      console.log('API计算金额结果:', result.amount);
+      console.log('✅ API计算金额成功:', result.amount);
     } catch (error) {
-      console.error('计算金额失败:', error)
+      console.error('❌ API计算金额失败:', error);
+      console.log('🔄 使用本地计算...');
       // 如果API调用失败，使用本地计算
       formData.amount = parseFloat(calculatedAmount.value)
-      console.log('本地计算金额结果:', formData.amount);
+      console.log('✅ 本地计算金额结果:', formData.amount);
     }
   } else {
-    console.log('计算金额条件不满足');
+    console.log('⚠️ 计算金额条件不满足');
+    console.log('workerId:', formData.workerId);
+    console.log('serviceHours:', formData.serviceHours);
   }
+  
+  console.log('=== 金额计算完成 ===');
+  console.log('最终金额:', formData.amount);
+  console.log('计算属性金额:', calculatedAmount.value);
 }
 
 // 打开弹窗
 const handleOpenDialog = async (id?: string) => {
+  console.log('=== 前端弹窗打开 ===');
+  console.log('订单ID:', id);
+  
   dialog.visible = true
   // 重置选择文本
   selectedMemberText.value = ''
   selectedWorkerText.value = ''
   
   if (id) {
+    console.log('🔄 编辑模式');
     dialog.title = '编辑订单'
     try {
+      console.log('🔄 获取订单详情...');
       const data = await OrderAPI.getDetail(id)
-      console.log('获取到的订单详情:', data);
+      console.log('✅ 获取订单详情成功:', data);
+      
       Object.assign(formData, {
         id: data.id,
         memberId: data.memberId,
@@ -806,17 +968,25 @@ const handleOpenDialog = async (id?: string) => {
         payMethod: data.payMethod,
         remark: data.remark
       })
+      
+      console.log('✅ 表单数据更新完成:', formData);
+      
       // 设置选中文本
       selectedMemberText.value = `${data.memberNickname} (${data.memberUsername})`
       selectedWorkerText.value = `${data.workerNickname} (¥${data.amount / data.serviceHours}/小时)`
+      
       // 设置余额和单价
       memberBalance.value = 0 // 编辑时暂时设为0，实际应该从会员详情获取
       hourlyRate.value = data.amount / data.serviceHours
+      
+      console.log('✅ 编辑模式初始化完成');
+      
     } catch (error) {
-      console.error('获取订单详情失败:', error)
+      console.error('❌ 获取订单详情失败:', error)
       ElMessage.error('获取订单详情失败')
     }
   } else {
+    console.log('🆕 新增模式');
     dialog.title = '新增订单'
     Object.assign(formData, {
       id: undefined,
@@ -829,7 +999,12 @@ const handleOpenDialog = async (id?: string) => {
     })
     memberBalance.value = 0
     hourlyRate.value = 0
+    
+    console.log('✅ 新增模式初始化完成');
+    console.log('初始表单数据:', formData);
   }
+  
+  console.log('=== 弹窗打开完成 ===');
 }
 
 // 关闭弹窗
@@ -847,33 +1022,49 @@ const handleCloseDialog = () => {
 const handleSubmit = async () => {
   if (!orderFormRef.value) return
   
+  console.log('=== 前端订单提交开始 ===');
+  console.log('表单验证开始...');
+  
   const valid = await orderFormRef.value.validate().catch(() => false)
-  if (!valid) return
+  if (!valid) {
+    console.log('❌ 表单验证失败');
+    return
+  }
+  
+  console.log('✅ 表单验证通过');
   
   // 确保使用计算出的金额
   formData.amount = parseFloat(calculatedAmount.value)
   console.log('提交订单，金额:', formData.amount);
+  console.log('支付方式:', formData.payMethod);
+  console.log('会员余额:', memberBalance.value);
   
   if (formData.payMethod === 'balance' && memberBalance.value < formData.amount) {
+    console.log('❌ 会员余额不足');
     ElMessage.error('会员余额不足')
     return
   }
   
   try {
     if (formData.id) {
+      console.log('🔄 开始更新订单...');
+      console.log('更新数据:', formData);
       await OrderAPI.update(formData.id, formData)
+      console.log('✅ 订单更新成功');
       ElMessage.success('订单更新成功')
     } else {
-      console.log('开始创建订单，表单数据:', formData);
+      console.log('🆕 开始创建订单...');
+      console.log('创建数据:', formData);
       const result = await OrderAPI.create(formData)
-      console.log('订单创建API返回结果:', result);
+      console.log('✅ 订单创建成功');
+      console.log('API返回结果:', result);
       ElMessage.success('订单创建成功')
     }
     handleCloseDialog()
     handleQuery()
     loadStats()
   } catch (error: any) {
-    console.error('保存订单失败:', error)
+    console.error('💥 保存订单失败:', error);
     console.error('错误详情:', {
       message: error.message,
       response: error.response?.data,
@@ -973,11 +1164,36 @@ const loadStats = async () => {
 
 // 初始化
 onMounted(async () => {
-  await handleQuery()
-  await loadStats()
-  // 初始化会员和打手列表
-  await handleMemberQuery()
-  await handleWorkerQuery()
+  console.log('=== 前端页面初始化开始 ===');
+  debugStatus.value = '页面初始化开始...'
+  
+  try {
+    console.log('🔄 加载订单列表...');
+    debugStatus.value = '加载订单列表中...'
+    await handleQuery()
+    console.log('✅ 订单列表加载完成');
+    
+    console.log('🔄 加载统计数据...');
+    debugStatus.value = '加载统计数据中...'
+    await loadStats()
+    console.log('✅ 统计数据加载完成');
+    
+    console.log('🔄 初始化会员列表...');
+    debugStatus.value = '初始化会员列表中...'
+    await handleMemberQuery()
+    console.log('✅ 会员列表初始化完成');
+    
+    console.log('🔄 初始化打手列表...');
+    debugStatus.value = '初始化打手列表中...'
+    await handleWorkerQuery()
+    console.log('✅ 打手列表初始化完成');
+    
+    console.log('🎉 页面初始化完成');
+    debugStatus.value = '页面初始化完成'
+  } catch (error) {
+    console.error('💥 页面初始化失败:', error);
+    debugStatus.value = `页面初始化失败: ${(error as Error).message}`
+  }
 })
 </script>
 
