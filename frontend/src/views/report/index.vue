@@ -367,6 +367,8 @@ const loadTrendData = async () => {
     startDate.setDate(endDate.getDate() - parseInt(trendPeriod.value))
     
     const data = await ReportAPI.getTrendData({
+      type: trendType.value, // 添加必需的type参数
+      period: trendPeriod.value + 'd', // 添加必需的period参数
       startDate: startDate.toISOString().split('T')[0],
       endDate: endDate.toISOString().split('T')[0]
     })
@@ -440,7 +442,9 @@ const loadTrendData = async () => {
 // 加载支付方式分布
 const loadPaymentDistribution = async () => {
   try {
-    const { data } = await ReportAPI.getPayMethodStats({})
+    const { data } = await ReportAPI.getPayMethodStats({
+      type: 'order' // 添加必需的type参数，默认查询订单支付方式
+    })
     const chartData = data.map(item => ({
        value: item.percentage,
        name: item.method === 'balance' ? '余额支付' : 
@@ -448,44 +452,48 @@ const loadPaymentDistribution = async () => {
      }))
      
      nextTick(() => {
-    if (paymentChart) {
-      paymentChart.setOption({
-        title: {
-          text: '支付方式',
-          left: 'center',
-          top: 'bottom',
-          textStyle: { fontSize: 14 }
-        },
-        tooltip: {
-          trigger: 'item',
-          formatter: '{a} <br/>{b}: {c}% ({d}%)'
-        },
-        series: [{
-          name: '支付方式',
-          type: 'pie',
-          radius: ['40%', '70%'],
-          center: ['50%', '45%'],
-          data: chartData,
-          itemStyle: {
-            borderRadius: 5,
-            borderColor: '#fff',
-            borderWidth: 2
+      if (paymentChart) {
+        paymentChart.setOption({
+          title: {
+            text: '支付方式',
+            left: 'center',
+            top: 'bottom',
+            textStyle: { fontSize: 14 }
           },
-          label: {
-            show: true,
-            formatter: '{b}\n{d}%'
+          tooltip: {
+            trigger: 'item',
+            formatter: '{a} <br/>{b}: {c}% ({d}%)'
           },
-          emphasis: {
+          series: [{
+            name: '支付方式',
+            type: 'pie',
+            radius: ['40%', '70%'],
+            center: ['50%', '45%'],
+            data: chartData,
             itemStyle: {
-              shadowBlur: 10,
-              shadowOffsetX: 0,
-              shadowColor: 'rgba(0, 0, 0, 0.5)'
+              borderRadius: 5,
+              borderColor: '#fff',
+              borderWidth: 2
+            },
+            label: {
+              show: true,
+              formatter: '{b}\n{d}%'
+            },
+            emphasis: {
+              itemStyle: {
+                shadowBlur: 10,
+                shadowOffsetX: 0,
+                shadowColor: 'rgba(0, 0, 0, 0.5)'
+              }
             }
-          }
-        }]
-      })
-    }
-  })
+          }]
+        })
+      }
+    })
+  } catch (error) {
+    console.error('获取支付方式分布失败:', error)
+    ElMessage.error('获取支付方式分布失败')
+  }
 }
 
 // 加载会员排行榜
@@ -504,6 +512,7 @@ const loadMemberRanking = async () => {
     }
     
     const { data } = await ReportAPI.getMemberRanking({
+      type: 'consume', // 添加必需的type参数，查询消费排行榜
       startDate: startDate.toISOString().split('T')[0],
       endDate: endDate.toISOString().split('T')[0],
       limit: 10

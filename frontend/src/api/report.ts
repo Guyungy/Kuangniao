@@ -58,7 +58,8 @@ export interface DetailStats {
 export interface ReportQuery {
   startDate?: string;
   endDate?: string;
-  type?: 'day' | 'week' | 'month';
+  type?: 'order' | 'recharge' | 'consume';
+  period?: '7d' | '30d' | '90d';
 }
 
 const ReportAPI = {
@@ -83,6 +84,7 @@ const ReportAPI = {
     
     // 只添加非空参数
     if (params.type) backendParams.type = params.type;
+    if (params.period) backendParams.period = params.period;
     if (params.startDate && params.startDate.trim()) backendParams.start_date = params.startDate.trim();
     if (params.endDate && params.endDate.trim()) backendParams.end_date = params.endDate.trim();
 
