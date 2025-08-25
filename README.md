@@ -325,3 +325,115 @@ npm run db:sync
 ---
 
 ⭐ 如果这个项目对你有帮助，请给我们一个 Star！
+
+## 🐳 Docker 部署
+
+### 前置条件
+- 已安装并运行 Docker Desktop（Windows 11）
+
+### 一键启动（生产模式）
+1) 打开 PowerShell 并进入项目根目录：
+```powershell
+cd C:\Users\admin\Documents\GitHub\daodao
+```
+2) 启动（首次会自动构建镜像并导入 payboard.sql）：
+```powershell
+docker compose up -d
+```
+3) 访问与验证：
+- 前端：`http://localhost/`
+- 后端健康检查：`http://localhost:10000/health`
+- phpMyAdmin：`http://localhost:8080`（root/root）
+- 验证数据库导入：
+```powershell
+docker exec -it payboard-mysql mysql -uroot -proot -e "SHOW DATABASES; USE payboard; SHOW TABLES;"
+```
+
+说明：
+- `docker-compose.yml` 已将 `payboard.sql` 以 init 脚本挂载到 `/docker-entrypoint-initdb.d/`，仅第一次启动会自动执行。
+- 前端通过 Nginx 反代至后端，并将 `VITE_APP_BASE_API` 设为 `/api/v1`，与后端路由一致。
+
+### 常用维护命令
+- 查看状态与日志：
+```powershell
+docker compose ps
+docker logs -f payboard-backend | cat
+docker logs -f payboard-mysql | cat
+```
+- 重建镜像并热更新部署（修改了前端/后端代码或 compose）：
+```powershell
+docker compose up -d --build
+```
+- 清空数据卷并重新初始化数据库（重新导入 payboard.sql）：
+```powershell
+docker compose down -v
+docker compose up -d
+```
+
+### 开发模式（热更新）
+生产镜像 + Nginx 不支持秒级热更新，如需 HMR，请使用以下任一方案：
+
+- 方案 A（推荐，最简单）：本机直接起 Vite Dev Server
+  1) 前端目录安装依赖并启动：
+  ```powershell
+  cd frontend
+  pnpm i
+  pnpm dev
+  ```
+  2) 新建 `frontend/.env.local`：
+  ```
+  VITE_APP_BASE_API=http://localhost:10000/api/v1
+  ```
+  3) 访问 `http://localhost:5173`，保存即热更新。
+
+- 方案 B（容器内开发）：使用 override 覆盖前端为 Dev Server
+  新建 `docker-compose.override.yml`：
+  ```yaml
+  services:
+    frontend:
+      image: node:20-alpine
+      working_dir: /app
+      command: sh -c "npm i -g pnpm@9 && pnpm i && pnpm dev --host"
+      volumes:
+        - ./frontend:/app
+      ports:
+        - "5173:5173"
+      environment:
+        - VITE_APP_BASE_API=http://backend:10000/api/v1
+      depends_on:
+        - backend
+  ```
+  启动：
+  ```powershell
+  docker compose up -d
+  ```
+  访问 `http://localhost:5173`。
+
+### 数据持久化与版本管理
+- 不建议将 `mysql-data/` 加入版本控制（体积大、机器相关、易冲突）。建议在 `.gitignore` 中忽略：
+```
+mysql-data/
+```
+- 备份与迁移建议使用逻辑导出：
+```powershell
+mysqldump -h 127.0.0.1 -P 3306 -uroot -proot --databases payboard > backup.sql
+```
+- 可选：使用命名卷替代宿主机目录（更干净）
+  - 将 compose 中：
+    ```
+    - ./mysql-data:/var/lib/mysql
+    ```
+    替换为：
+    ```
+    - payboard-mysql-data:/var/lib/mysql
+    ```
+  - 并在文件末尾添加：
+    ```yaml
+    volumes:
+      payboard-mysql-data:
+    ```
+
+### 常见问题
+- 3306 被占用：将 `"3306:3306"` 改为 `"3307:3306"` 后重启。
+- 首次导入未触发：执行 `docker compose down -v` 再 `up -d`。
+- Windows 挂载失败：在 Docker Desktop → Settings → Resources → File Sharing 中允许项目目录共享。
