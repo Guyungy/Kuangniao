@@ -170,8 +170,8 @@
               >
                 {{ scope.row.status === '禁用' ? '启用' : '禁用' }}
               </el-button>
-              <el-button link type="danger" size="small" @click="handleDelete(scope.row.id)">
-                <i-ep-delete />删除
+              <el-button link type="warning" size="small" @click="handleCancel(scope.row.id)">
+                <i-ep-close />取消
               </el-button>
             </div>
           </template>
@@ -907,22 +907,31 @@ const handleSubmit = () => {
   })
 }
 
-// 删除
-const handleDelete = (id: string) => {
-  ElMessageBox.confirm('确认删除该打手吗？删除后无法恢复。', '提示', {
+// 取消打手
+const handleCancel = (id: string) => {
+  ElMessageBox.prompt('请输入取消原因', '取消打手', {
     confirmButtonText: '确定',
     cancelButtonText: '取消',
-    type: 'warning'
-  }).then(async () => {
+    inputType: 'textarea',
+    inputPlaceholder: '请输入取消原因（必填）',
+    inputValidator: (value) => {
+      if (!value || value.trim() === '') {
+        return '取消原因不能为空'
+      }
+      return true
+    }
+  }).then(async ({ value }) => {
     try {
-      await WorkerAPI.delete(id)
-      ElMessage.success('删除成功')
+      await WorkerAPI.delete(id, { cancel_reason: value })
+      ElMessage.success('取消成功')
       await handleQuery()
       await loadStats()
     } catch (error) {
-      console.error('删除失败:', error)
-      ElMessage.error('删除失败')
+      console.error('取消失败:', error)
+      ElMessage.error('取消失败')
     }
+  }).catch(() => {
+    // 用户取消操作
   })
 }
 

@@ -5,6 +5,12 @@ const AUTH_BASE_URL = "/auth";
 const AuthAPI = {
   /** 登录接口*/
   login(data: LoginFormData) {
+    console.log('🔑 发起登录请求(准备)：', {
+      url: `${AUTH_BASE_URL}/login`,
+      method: 'post',
+      payload: { username: data.username, password: '******' }
+    });
+    const startedAt = Date.now();
     return request<any, LoginResult>({
       url: `${AUTH_BASE_URL}/login`,
       method: "post",
@@ -16,6 +22,8 @@ const AuthAPI = {
         "Content-Type": "application/json",
       },
     }).then(response => {
+      const duration = Date.now() - startedAt;
+      console.log(`🔑 登录请求成功，耗时 ${duration}ms`);
       console.log('登录响应:', response);
       console.log('登录响应类型:', typeof response);
       console.log('登录响应字段:', Object.keys(response || {}));
@@ -23,6 +31,10 @@ const AuthAPI = {
       console.log('accessToken:', response?.accessToken);
       console.log('refreshToken:', response?.refreshToken);
       return response;
+    }).catch(err => {
+      const duration = Date.now() - startedAt;
+      console.error(`🔑 登录请求失败，耗时 ${duration}ms`, err);
+      throw err;
     });
   },
 

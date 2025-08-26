@@ -82,6 +82,13 @@ export interface WorkerStats {
 
 // 数据映射函数
 function mapWorkerFromBackend(item: any): WorkerVO {
+  console.log('映射打手数据:', {
+    id: item.id,
+    name: item.name,
+    total_orders: item.total_orders,
+    total_income: item.total_income
+  });
+  
   return {
     id: String(item.id),
     username: item.username || '',
@@ -240,11 +247,12 @@ const WorkerAPI = {
     });
   },
 
-  /** 删除打手 */
-  delete(id: string) {
+  /** 取消打手（软删除） */
+  delete(id: string, data?: { cancel_reason?: string }) {
     return request({
       url: `${WORKER_BASE_URL}/${id}`,
-      method: 'delete'
+      method: 'delete',
+      data
     });
   },
 

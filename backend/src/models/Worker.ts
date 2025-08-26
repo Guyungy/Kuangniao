@@ -18,7 +18,14 @@ export enum WorkerStatus {
 @Table({
   tableName: 'workers',
   timestamps: true,
-  underscored: true
+  underscored: true,
+  scopes: {
+    active: {
+      where: {
+        is_cancelled: false
+      }
+    }
+  }
 })
 export class Worker extends Model {
   @PrimaryKey
@@ -142,6 +149,28 @@ export class Worker extends Model {
     comment: '最近更新时间'
   })
   updated_at!: Date;
+
+  @Column({
+    type: DataType.BOOLEAN,
+    allowNull: false,
+    defaultValue: false,
+    comment: '是否已取消（软删除）'
+  })
+  is_cancelled!: boolean;
+
+  @Column({
+    type: DataType.DATE,
+    allowNull: true,
+    comment: '取消时间'
+  })
+  cancelled_at?: Date;
+
+  @Column({
+    type: DataType.STRING(255),
+    allowNull: true,
+    comment: '取消原因'
+  })
+  cancel_reason?: string;
 
   // 关联关系
   @HasMany(() => Order)

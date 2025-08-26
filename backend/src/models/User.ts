@@ -1,9 +1,12 @@
-import { Table, Column, Model, DataType, PrimaryKey, AutoIncrement } from 'sequelize-typescript';
+import { Table, Column, Model, DataType, PrimaryKey, AutoIncrement, BelongsToMany } from 'sequelize-typescript';
 import bcrypt from 'bcryptjs';
+import { Role } from './Role';
+import { UserRoleModel } from './UserRole';
 
 export enum UserRole {
-  ADMIN = 'admin',
-  OPERATOR = 'operator'
+  ROOT = 'ROOT',
+  ADMIN = 'ADMIN',
+  USER = 'USER'
 }
 
 export enum UserStatus {
@@ -47,7 +50,7 @@ export class User extends Model {
   @Column({
     type: DataType.ENUM(...Object.values(UserRole)),
     allowNull: false,
-    defaultValue: UserRole.OPERATOR,
+    defaultValue: UserRole.USER,
     comment: '角色'
   })
   role!: UserRole;
@@ -83,6 +86,10 @@ export class User extends Model {
   })
   updated_at!: Date;
 
+  // 关联关系
+  @BelongsToMany(() => Role, () => UserRoleModel)
+  roles!: Role[];
+
   // 实例方法：验证密码
   async validatePassword(password: string): Promise<boolean> {
     return bcrypt.compare(password, this.password);
@@ -102,7 +109,7 @@ export class User extends Model {
 
   // 实例方法：检查是否为管理员
   isAdmin(): boolean {
-    return this.role === UserRole.ADMIN;
+    return this.role === UserRole.ROOT || this.role === UserRole.ADMIN;
   }
 
   // 实例方法：检查是否可用
@@ -113,8 +120,9 @@ export class User extends Model {
   // 静态方法：获取角色的中文描述
   static getRoleText(role: UserRole): string {
     const roleMap = {
+      [UserRole.ROOT]: '超级管理员',
       [UserRole.ADMIN]: '管理员',
-      [UserRole.OPERATOR]: '操作员'
+      [UserRole.USER]: '普通用户'
     };
     return roleMap[role] || role;
   }

@@ -111,22 +111,30 @@ const loginRules = computed(() => {
  * 登录提交
  */
 async function handleLoginSubmit() {
+  console.log('[Login] 点击登录按钮');
   try {
     // 1. 表单验证
+    console.log('[Login] 开始表单校验');
     const valid = await loginFormRef.value?.validate();
     if (!valid) return;
 
     loading.value = true;
+    console.log('[Login] 表单校验通过，开始调用登录接口');
+    // 显示提示，确保用户能看到动作开始
+    ElMessage.info('开始登录...');
 
     // 2. 执行登录
     await userStore.login(loginFormData.value);
+    console.log('[Login] 登录接口返回成功');
 
     const redirectPath = (route.query.redirect as string) || "/";
 
     await router.push(decodeURIComponent(redirectPath));
+    console.log('[Login] 页面跳转完成:', redirectPath);
   } catch (error: any) {
     // 详细的错误处理
     console.error("登录失败:", error);
+    ElMessage.error('登录失败');
     
     // 如果错误已经被全局拦截器处理过，就不再显示错误
     if (error.message && (
@@ -194,6 +202,7 @@ async function handleLoginSubmit() {
     ElMessage.error(errorMessage);
   } finally {
     loading.value = false;
+    console.log('[Login] 登录流程结束，loading 关闭');
   }
 }
 

@@ -78,7 +78,7 @@ router.get('/', [
       where.status = status;
     }
 
-    const { rows: workers, count: total } = await Worker.findAndCountAll({
+    const { rows: workers, count: total } = await Worker.scope('active').findAndCountAll({
       where,
       limit,
       offset,
@@ -750,9 +750,10 @@ router.get('/:id/income-stats', [
   }
 });
 
-// 删除打手
+// 取消打手（软删除）
 router.delete('/:id', [
-  param('id').isInt({ min: 1 }).withMessage('打手ID必须是正整数')
+  param('id').isInt({ min: 1 }).withMessage('打手ID必须是正整数'),
+  body('cancel_reason').optional().isString().withMessage('取消原因必须是字符串')
 ], async (req: Request, res: Response): Promise<void> => {
   try {
     const errors = validationResult(req);
@@ -767,6 +768,7 @@ router.delete('/:id', [
     }
 
     const workerId = parseInt(req.params.id);
+    const cancelReason = req.body.cancel_reason || '管理员取消';
 
     const worker = await Worker.findByPk(workerId);
     if (!worker) {
@@ -783,21 +785,26 @@ router.delete('/:id', [
     if (orderCount > 0) {
       res.status(400).json({
         code: 'B0001',
-        message: '该打手存在订单记录，无法删除',
+        message: '该打手存在订单记录，无法取消',
         data: null
       });
       return;
     }
 
-    await worker.destroy();
+    // 软删除：标记为已取消
+    await worker.update({
+      is_cancelled: true,
+      cancelled_at: new Date(),
+      cancel_reason: cancelReason
+    });
 
     res.json({
       code: 200,
-      message: '删除打手成功',
+      message: '取消打手成功',
       data: null
     });
   } catch (error) {
-    console.error('删除打手错误:', error);
+    console.error('取消打手错误:', error);
     res.status(500).json({
       code: 'B0001',
       message: '服务器内部错误',

@@ -3,7 +3,7 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import dotenv from 'dotenv';
-import { sequelize } from './config/database';
+import sequelize, { initializeModels } from './models';
 import { errorHandler } from './middleware/errorHandler';
 import { requestLogger } from './middleware/requestLogger';
 
@@ -15,13 +15,15 @@ import workerRoutes from './routes/workers';
 import reportRoutes from './routes/reports';
 import authRoutes from './routes/auth';
 import userRoutes from './routes/users';
+import roleRoutes from './routes/roles';
 import logRoutes from './routes/logs';
 import commissionRuleRoutes from './routes/commission-rules';
+import workerSettlementRoutes from './routes/worker-settlements';
 
 // 加载环境变量
 dotenv.config();
 
-const app = express();
+const app: express.Application = express();
 const PORT = process.env.PORT || 10000;
 
 // 中间件配置
@@ -36,14 +38,97 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use(requestLogger);
 
+// 进程级错误监控，便于定位崩溃/异常
+process.on('unhandledRejection', (reason: any, promise) => {
+  console.error('💥 未处理的Promise拒绝:', {
+    reason: reason instanceof Error ? reason.message : String(reason),
+    stack: reason?.stack,
+    timestamp: new Date().toISOString()
+  });
+});
+
+process.on('uncaughtException', (error) => {
+  console.error('💥 未捕获的异常:', {
+    error: error.message,
+    stack: error.stack,
+    timestamp: new Date().toISOString()
+  });
+});
+
 // 健康检查
 app.get('/health', (req, res) => {
   res.json({ status: 'OK', timestamp: new Date().toISOString() });
 });
 
+// 数据库健康检查
+app.get('/health/db', async (req, res) => {
+  const startedAt = Date.now();
+  try {
+    await sequelize.authenticate();
+    const duration = Date.now() - startedAt;
+    res.json({
+      status: 'OK',
+      durationMs: duration,
+      db: {
+        host: sequelize.config.host,
+        port: sequelize.config.port,
+        database: sequelize.config.database,
+        username: sequelize.config.username,
+        dialect: 'mysql'
+      },
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    const duration = Date.now() - startedAt;
+    console.error('❌ DB 健康检查失败:', error);
+    res.status(500).json({
+      status: 'ERROR',
+      durationMs: duration,
+      error: (error as Error).message,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+// 就绪探针：当前仅检测数据库可用性
+app.get('/ready', async (req, res) => {
+  try {
+    await sequelize.authenticate();
+    res.json({ status: 'READY', timestamp: new Date().toISOString() });
+  } catch (error) {
+    res.status(503).json({ status: 'NOT_READY', reason: 'db_unavailable', timestamp: new Date().toISOString() });
+  }
+});
+
+// 列出已注册路由，便于排查路径问题
+app.get('/health/routes', (req, res) => {
+  const routes: Array<{ method: string; path: string }> = [];
+  // @ts-ignore 私有属性，仅用于诊断
+  app._router.stack.forEach((layer: any) => {
+    if (layer.route && layer.route.path) {
+      const methods = Object.keys(layer.route.methods)
+        .filter((m) => layer.route.methods[m])
+        .map((m) => m.toUpperCase());
+      methods.forEach((m) => routes.push({ method: m, path: layer.route.path }));
+    } else if (layer.name === 'router' && layer.handle && layer.handle.stack) {
+      layer.handle.stack.forEach((sub: any) => {
+        if (sub.route && sub.route.path) {
+          const methods = Object.keys(sub.route.methods)
+            .filter((m) => sub.route.methods[m])
+            .map((m) => m.toUpperCase());
+          const path = (layer.regexp && layer.regexp.fast_star) ? '*' : (layer.regexp && layer.regexp.toString()) || '';
+          methods.forEach((m) => routes.push({ method: m, path: sub.route.path }));
+        }
+      });
+    }
+  });
+  res.json({ count: routes.length, routes });
+});
+
 // API路由
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/users', userRoutes);
+app.use('/api/v1/roles', roleRoutes);
 app.use('/api/v1/members', memberRoutes);
 app.use('/api/v1/recharges', rechargeRoutes);
 app.use('/api/v1/orders', orderRoutes);
@@ -51,6 +136,7 @@ app.use('/api/v1/workers', workerRoutes);
 app.use('/api/v1/reports', reportRoutes);
 app.use('/api/v1/logs', logRoutes);
 app.use('/api/v1/commission-rules', commissionRuleRoutes);
+app.use('/api/v1/worker-settlements', workerSettlementRoutes);
 
 // 404处理
 app.use('*', (req, res) => {
@@ -95,10 +181,10 @@ async function startServer() {
     // 测试数据库连接
     console.log('🔌 开始测试数据库连接...');
     console.log('📊 数据库配置:', {
-      host: '192.168.50.17',
-      port: 3306,
-      database: 'payboard',
-      username: 'root',
+      host: sequelize.config.host,
+      port: sequelize.config.port,
+      database: sequelize.config.database,
+      username: sequelize.config.username,
       dialect: 'mysql'
     });
     
@@ -107,7 +193,7 @@ async function startServer() {
     
     // 同步数据库模型
     console.log('🔄 开始同步数据库模型...');
-    await sequelize.sync({ force: false });
+    await initializeModels(); // 使用 initializeModels 函数
     console.log('✅ 数据库模型同步成功');
     
     // 启动服务器
@@ -118,6 +204,9 @@ async function startServer() {
       console.log(`🔗 API基础地址: http://localhost:${PORT}/api/v1`);
       console.log('📋 可用端点:');
       console.log('   - /health (健康检查)');
+      console.log('   - /health/db (数据库健康检查)');
+      console.log('   - /health/routes (路由列表)');
+      console.log('   - /ready (就绪检查)');
       console.log('   - /api/v1/auth (用户认证)');
       console.log('   - /api/v1/users (用户管理)');
       console.log('   - /api/v1/members (会员管理)');

@@ -9,8 +9,14 @@ import router from "@/router";
 /**
  * 创建 HTTP 请求实例
  */
+const viteEnv = (import.meta as any).env || {};
+// 优先使用 Vite 代理前缀（如 /dev-api），否则回退到完整后端地址
+const PROXY_BASE = viteEnv.VITE_APP_BASE_API; // 例如 '/dev-api'
+const API_BASE_URL = PROXY_BASE || viteEnv.VITE_API_BASE_URL || 'http://localhost:10000/api/v1';
+console.log('🌐 使用API基础地址:', API_BASE_URL, '(代理前缀优先)');
+
 const httpRequest = axios.create({
-  baseURL: 'http://localhost:10000/api/v1', // 本地后端地址
+  baseURL: API_BASE_URL, // 可通过 VITE_API_BASE_URL 配置
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json;charset=utf-8'
@@ -22,6 +28,9 @@ const httpRequest = axios.create({
  */
 httpRequest.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
+    // 打点开始时间（仅用于调试）
+    (config as any)._meta = { startTime: Date.now() };
+
     const accessToken = AuthStorage.getAccessToken();
 
     // 如果 Authorization 设置为 no-auth，则不携带 Token
@@ -33,7 +42,8 @@ httpRequest.interceptors.request.use(
 
     // 添加调试日志
     console.log('🚀 === 请求拦截器调试 ===');
-    console.log('请求URL:', config.url);
+    const fullUrl = `${config.baseURL || ''}${config.url || ''}`;
+    console.log('请求URL:', fullUrl);
     console.log('请求方法:', config.method?.toUpperCase());
     console.log('请求参数:', config.params);
     console.log('请求头:', config.headers);
@@ -58,11 +68,17 @@ httpRequest.interceptors.request.use(
  */
 httpRequest.interceptors.response.use(
   (response: AxiosResponse<ApiResponse>): any => {
+    // 计算耗时
+    const startTime: number | undefined = (response.config as any)?._meta?.startTime;
+    const duration = typeof startTime === 'number' ? Date.now() - startTime : undefined;
     console.log('📥 === 响应拦截器调试 ===');
     console.log('响应状态码:', response.status);
     console.log('响应状态文本:', response.statusText);
     console.log('响应头:', response.headers);
     console.log('响应配置:', response.config);
+    if (duration !== undefined) {
+      console.log(`⏱️ 请求耗时: ${duration}ms`);
+    }
     console.log('完整响应对象:', response);
     console.log('响应数据:', response.data);
     console.log('响应数据类型:', typeof response.data);
@@ -132,19 +148,28 @@ httpRequest.interceptors.response.use(
     console.error('错误请求头:', error.config?.headers);
     console.error('错误请求参数:', error.config?.params);
     console.error('错误请求数据:', error.config?.data);
+    // 计算耗时（若可用）
+    const startTime: number | undefined = (error.config as any)?._meta?.startTime;
+    const duration = typeof startTime === 'number' ? Date.now() - startTime : undefined;
+    if (duration !== undefined) {
+      console.error(`⏱️ 请求耗时(错误): ${duration}ms`);
+    }
     console.error('错误堆栈:', error.stack);
     
     // 网络错误
     if (error.code === 'ECONNABORTED') {
       console.error('🌐 请求超时');
-      ElMessage.error('请求超时，请检查网络连接');
+      const msg = `请求超时${duration !== undefined ? `（${duration}ms）` : ''}，请检查网络连接`;
+      ElMessage.error(msg);
       return Promise.reject(error);
     }
     
     // 网络连接错误
     if (error.code === 'ERR_NETWORK') {
       console.error('🌐 网络连接错误');
-      ElMessage.error('网络连接失败，请检查网络设置');
+      const isCors = error.message?.toLowerCase().includes('network error');
+      const hint = isCors ? '（可能是后端未启动或 CORS/端口不通）' : '';
+      ElMessage.error(`网络连接失败${hint}`);
       return Promise.reject(error);
     }
     
@@ -155,33 +180,34 @@ httpRequest.interceptors.response.use(
       switch (status) {
         case 400:
           console.error('❌ 400 - 请求参数错误');
-          ElMessage.error(data?.message || '请求参数错误');
+          ElMessage.error(data?.message || data?.msg || '请求参数错误');
           break;
         case 401:
           console.error('❌ 401 - 未授权访问');
-          ElMessage.error(data?.message || '请先登录');
+          ElMessage.error(data?.message || data?.msg || '请先登录');
           // 可以在这里处理登录跳转
           break;
         case 403:
           console.error('❌ 403 - 禁止访问');
-          ElMessage.error(data?.message || '没有权限访问此资源');
+          ElMessage.error(data?.message || data?.msg || '没有权限访问此资源');
           break;
         case 404:
           console.error('❌ 404 - 资源不存在');
-          ElMessage.error(data?.message || '请求的资源不存在');
+          ElMessage.error(data?.message || data?.msg || '请求的资源不存在');
           break;
         case 500:
           console.error('❌ 500 - 服务器内部错误');
-          ElMessage.error(data?.message || '服务器内部错误，请稍后重试');
+          ElMessage.error(data?.message || data?.msg || '服务器内部错误，请稍后重试');
           break;
         default:
           console.error(`❌ ${status} - 未知错误`);
-          ElMessage.error(data?.message || `请求失败 (${status})`);
+          ElMessage.error(data?.message || data?.msg || `请求失败 (${status})`);
       }
     } else {
       // 其他错误
       console.error('❌ 未知错误类型');
-      ElMessage.error('请求失败，请稍后重试');
+      const isCors = error.message?.toLowerCase().includes('network error');
+      ElMessage.error(isCors ? '请求失败：可能的 CORS 或网络阻断' : '请求失败，请稍后重试');
     }
     
     return Promise.reject(error);

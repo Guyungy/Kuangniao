@@ -84,7 +84,7 @@ export const requireAdmin = (req: Request, res: Response, next: NextFunction): v
     return;
   }
 
-  if (!req.user.isAdmin()) {
+  if (req.user.role !== 'ROOT' && req.user.role !== 'ADMIN') {
     res.status(403).json({
       code: 403,
       message: '需要管理员权限',

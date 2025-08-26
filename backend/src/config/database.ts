@@ -8,6 +8,8 @@ import { Worker } from '../models/Worker';
 import { Order } from '../models/Order';
 import { Recharge } from '../models/Recharge';
 import { User } from '../models/User';
+import { Role } from '../models/Role';
+import { UserRoleModel } from '../models/UserRole';
 import { CommissionRule } from '../models/CommissionRule';
 
 dotenv.config();
@@ -33,7 +35,7 @@ const sequelize = new Sequelize({
     max: 3,
     timeout: 3000
   },
-  models: [Member, Worker, Order, Recharge, User, CommissionRule],
+  models: [Member, Worker, Order, Recharge, User, Role, UserRoleModel, CommissionRule],
   define: {
     timestamps: true,
     underscored: true,

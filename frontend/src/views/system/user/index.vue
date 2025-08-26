@@ -22,8 +22,8 @@
                 clearable
                 style="width: 100px"
               >
-                <el-option label="正常" :value="1" />
-                <el-option label="禁用" :value="0" />
+                <el-option label="正常" value="active" />
+                <el-option label="禁用" value="disabled" />
               </el-select>
             </el-form-item>
 
@@ -50,7 +50,6 @@
           <div class="data-table__toolbar">
             <div class="data-table__toolbar--actions">
               <el-button
-                v-hasPerm="['sys:user:add']"
                 type="success"
                 icon="plus"
                 @click="handleOpenDialog()"
@@ -58,7 +57,6 @@
                 新增
               </el-button>
               <el-button
-                v-hasPerm="'sys:user:delete'"
                 type="danger"
                 icon="delete"
                 :disabled="selectIds.length === 0"
@@ -69,14 +67,13 @@
             </div>
             <div class="data-table__toolbar--tools">
               <el-button
-                v-hasPerm="'sys:user:import'"
                 icon="upload"
                 @click="handleOpenImportDialog"
               >
                 导入
               </el-button>
 
-              <el-button v-hasPerm="'sys:user:export'" icon="download" @click="handleExport">
+              <el-button icon="download" @click="handleExport">
                 导出
               </el-button>
             </div>
@@ -94,18 +91,11 @@
             <el-table-column type="selection" width="50" align="center" />
             <el-table-column label="用户名" prop="username" />
             <el-table-column label="昵称" width="150" align="center" prop="nickname" />
-            <el-table-column label="性别" width="100" align="center">
-              <template #default="scope">
-                <el-tag>{{ scope.row.gender === 1 ? '男' : scope.row.gender === 2 ? '女' : '未知' }}</el-tag>
-              </template>
-            </el-table-column>
-            <el-table-column label="部门" width="120" align="center" prop="deptName" />
-            <el-table-column label="手机号码" align="center" prop="mobile" width="120" />
-            <el-table-column label="邮箱" align="center" prop="email" width="160" />
+            <el-table-column label="角色" width="120" align="center" prop="role" />
             <el-table-column label="状态" align="center" prop="status" width="80">
               <template #default="scope">
-                <el-tag :type="scope.row.status == 1 ? 'success' : 'info'">
-                  {{ scope.row.status == 1 ? "正常" : "禁用" }}
+                <el-tag :type="scope.row.status === 'active' ? 'success' : 'info'">
+                  {{ scope.row.status === 'active' ? "正常" : "禁用" }}
                 </el-tag>
               </template>
             </el-table-column>
@@ -113,7 +103,6 @@
             <el-table-column label="操作" fixed="right" width="220">
               <template #default="scope">
                 <el-button
-                  v-hasPerm="'sys:user:reset-password'"
                   type="primary"
                   icon="RefreshLeft"
                   size="small"
@@ -123,7 +112,6 @@
                   重置密码
                 </el-button>
                 <el-button
-                  v-hasPerm="'sys:user:edit'"
                   type="primary"
                   icon="edit"
                   link
@@ -133,7 +121,6 @@
                   编辑
                 </el-button>
                 <el-button
-                  v-hasPerm="'sys:user:delete'"
                   type="danger"
                   icon="delete"
                   link
@@ -173,27 +160,29 @@
           />
         </el-form-item>
 
+        <el-form-item 
+          v-if="!formData.id" 
+          label="密码" 
+          prop="password"
+        >
+          <el-input 
+            v-model="formData.password" 
+            type="password" 
+            placeholder="请输入密码" 
+            show-password
+          />
+        </el-form-item>
+
         <el-form-item label="用户昵称" prop="nickname">
           <el-input v-model="formData.nickname" placeholder="请输入用户昵称" />
         </el-form-item>
 
-        <el-form-item label="所属部门" prop="deptId">
-          <el-tree-select
-            v-model="formData.deptId"
-            placeholder="请选择所属部门"
-            :data="deptOptions"
-            filterable
-            check-strictly
-            :render-after-expand="false"
-          />
-        </el-form-item>
-
-        <el-form-item label="性别" prop="gender">
-          <Dict v-model="formData.gender" code="gender" />
-        </el-form-item>
-
-        <el-form-item label="角色" prop="roleIds">
-          <el-select v-model="formData.roleIds" multiple placeholder="请选择">
+        <el-form-item label="角色" prop="role">
+          <el-select
+            v-model="formData.role"
+            placeholder="请选择角色"
+            style="width: 100%"
+          >
             <el-option
               v-for="item in roleOptions"
               :key="item.value"
@@ -203,22 +192,14 @@
           </el-select>
         </el-form-item>
 
-        <el-form-item label="手机号码" prop="mobile">
-          <el-input v-model="formData.mobile" placeholder="请输入手机号码" maxlength="11" />
-        </el-form-item>
-
-        <el-form-item label="邮箱" prop="email">
-          <el-input v-model="formData.email" placeholder="请输入邮箱" maxlength="50" />
-        </el-form-item>
-
         <el-form-item label="状态" prop="status">
           <el-switch
             v-model="formData.status"
             inline-prompt
             active-text="正常"
             inactive-text="禁用"
-            :active-value="1"
-            :inactive-value="0"
+            active-value="active"
+            inactive-value="disabled"
           />
         </el-form-item>
       </el-form>
@@ -241,6 +222,7 @@ import { useAppStore } from "@/store/modules/app-store";
 import { DeviceEnum } from "@/enums/settings/device.enum";
 
 import UserAPI, { UserForm, UserPageQuery, UserPageVO } from "@/api/system/user-api";
+import RoleAPI from "@/api/system/role-api";
 
 import UserImport from "./components/UserImport.vue";
 
@@ -270,34 +252,20 @@ const dialog = reactive({
 const drawerSize = computed(() => (appStore.device === DeviceEnum.DESKTOP ? "600px" : "90%"));
 
 const formData = reactive<UserForm>({
-  status: 1,
+  status: 'active',
+  role: '',
+  password: '',
 });
 
 const rules = reactive({
   username: [{ required: true, message: "用户名不能为空", trigger: "blur" }],
+  password: [{ required: true, message: "密码不能为空", trigger: "blur" }],
   nickname: [{ required: true, message: "用户昵称不能为空", trigger: "blur" }],
-  deptId: [{ required: true, message: "所属部门不能为空", trigger: "blur" }],
-  roleIds: [{ required: true, message: "用户角色不能为空", trigger: "blur" }],
-  email: [
-    {
-      pattern: /\w[-\w.+]*@([A-Za-z0-9][-A-Za-z0-9]+\.)+[A-Za-z]{2,14}/,
-      message: "请输入正确的邮箱地址",
-      trigger: "blur",
-    },
-  ],
-  mobile: [
-    {
-      pattern: /^1[3|4|5|6|7|8|9][0-9]\d{8}$/,
-      message: "请输入正确的手机号码",
-      trigger: "blur",
-    },
-  ],
+  role: [{ required: true, message: "用户角色不能为空", trigger: "blur" }],
 });
 
 // 选中的用户ID
 const selectIds = ref<number[]>([]);
-// 部门下拉数据源
-const deptOptions = ref<OptionType[]>();
 // 角色下拉数据源
 const roleOptions = ref<OptionType[]>();
 // 导入弹窗显示状态
@@ -325,7 +293,6 @@ function handleQuery() {
 function handleResetQuery() {
   queryFormRef.value.resetFields();
   queryParams.pageNum = 1;
-  queryParams.deptId = undefined;
   queryParams.createTime = undefined;
   fetchData();
 }
@@ -363,9 +330,9 @@ function hancleResetPassword(row: UserPageVO) {
  */
 async function handleOpenDialog(id?: string) {
   dialog.visible = true;
-  // 简化版本，不加载角色和部门数据
-  roleOptions.value = [];
-  deptOptions.value = [];
+  
+  // 加载角色选项
+  await loadRoleOptions();
 
   if (id) {
     dialog.title = "修改用户";
@@ -384,7 +351,8 @@ function handleCloseDialog() {
   userFormRef.value.clearValidate();
 
   formData.id = undefined;
-  formData.status = 1;
+  formData.status = 'active';
+  formData.password = '';
 }
 
 // 提交用户表单（防抖）
@@ -474,7 +442,33 @@ function handleExport() {
   });
 }
 
+// 加载角色选项
+const loadRoleOptions = async () => {
+  try {
+    const response = await RoleAPI.getOptions();
+    roleOptions.value = response;
+  } catch (error) {
+    console.error("获取角色选项失败:", error);
+  }
+};
+
+// 初始化
 onMounted(() => {
   handleQuery();
+  loadRoleOptions();
 });
 </script>
+
+<style lang="scss" scoped>
+.search-container {
+  margin-bottom: 20px;
+}
+
+.data-table {
+  margin-bottom: 20px;
+}
+
+.dialog-footer {
+  text-align: right;
+}
+</style>

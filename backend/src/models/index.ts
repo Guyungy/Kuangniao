@@ -1,81 +1,108 @@
 import { Sequelize } from 'sequelize-typescript';
-import { Member } from './Member';
-import { Recharge } from './Recharge';
+import { User } from './User';
 import { Worker } from './Worker';
 import { Order } from './Order';
-import { User } from './User';
+import { Member } from './Member';
+import { Recharge } from './Recharge';
 import { CommissionRule } from './CommissionRule';
+import { Role } from './Role';
+import { UserRoleModel } from './UserRole';
+import { WorkerSettlement } from './WorkerSettlement';
 
-// 导出所有模型
-export {
-  Member,
-  Order,
-  Recharge,
+// 数据库配置
+const sequelize = new Sequelize({
+  dialect: 'mysql',
+  host: process.env.DB_HOST || '192.168.50.17',
+  port: parseInt(process.env.DB_PORT || '3306'),
+  username: process.env.DB_USER || 'root',
+  password: process.env.DB_PASSWORD || '123456',
+  database: process.env.DB_NAME || 'payboard',
+  logging: (sql: string, timing?: number) => {
+    // 仅在开发环境输出更详细的SQL日志
+    if (process.env.NODE_ENV === 'development') {
+      if (typeof timing === 'number') {
+        const isSlow = timing >= 500; // 500ms 视为慢查询
+        const prefix = isSlow ? '🐢 SLOW SQL' : 'SQL';
+        console.log(`[${new Date().toISOString()}] ${prefix} (${timing}ms): ${sql}`);
+      } else {
+        console.log(`[${new Date().toISOString()}] SQL: ${sql}`);
+      }
+    }
+  },
+  benchmark: true,
+  timezone: '+08:00',
+  dialectOptions: {
+    // 处理无效日期值
+    dateStrings: true,
+    typeCast: true,
+    // 设置 MySQL 模式
+    sql_mode: 'ALLOW_INVALID_DATES'
+  },
+  define: {
+    timestamps: true,
+    underscored: true,
+    freezeTableName: true,
+    charset: 'utf8mb4',
+    collate: 'utf8mb4_unicode_ci'
+  }
+});
+
+// 添加模型
+sequelize.addModels([
   User,
   Worker,
-  CommissionRule
-};
-
-// 导出枚举
-export { MemberStatus } from './Member';
-export { RechargeMethod } from './Recharge';
-export { WorkerType, WorkerStatus } from './Worker';
-export { PayMethod, OrderStatus } from './Order';
-export { UserRole, UserStatus } from './User';
-export { CommissionRuleType, CommissionRuleStatus } from './CommissionRule';
-
-// 初始化模型关联关系
-export const initializeModels = (sequelize: Sequelize): void => {
-  // 添加模型到 Sequelize 实例
-  sequelize.addModels([Member, Recharge, Worker, Order, User]);
-
-  // 这里可以添加额外的关联关系配置
-  // 注意：模型中已经通过装饰器定义了关联关系，这里主要用于复杂的关联配置
-};
-
-// 创建默认管理员用户的函数
-export const createDefaultAdmin = async (): Promise<void> => {
-  try {
-    const adminExists = await User.findOne({ where: { username: 'admin' } });
-    if (!adminExists) {
-      const admin = new User({
-        username: 'admin',
-        display_name: '系统管理员',
-        role: 'admin',
-        status: 'active'
-      });
-      await admin.setPassword('admin123');
-      await admin.save();
-      console.log('默认管理员账户已创建: admin/admin123');
-    }
-  } catch (error) {
-    console.error('创建默认管理员失败:', error);
-  }
-};
-
-// 数据库同步函数
-export const syncDatabase = async (sequelize: Sequelize, force: boolean = false): Promise<void> => {
-  try {
-    await sequelize.sync({ force });
-    console.log('数据库同步完成');
-    
-    // 创建默认管理员
-    await createDefaultAdmin();
-  } catch (error) {
-    console.error('数据库同步失败:', error);
-    throw error;
-  }
-};
-
-// 模型列表（用于批量操作）
-export const models = {
+  Order,
   Member,
   Recharge,
+  CommissionRule,
+  Role,
+  UserRoleModel,
+  WorkerSettlement
+]);
+
+// 初始化模型
+export async function initializeModels() {
+  try {
+    await sequelize.authenticate();
+    console.log('数据库连接成功');
+    
+    // 同步模型到数据库 - 使用 force: false 避免删除现有数据
+    await sequelize.sync({ force: false, alter: false });
+    console.log('数据库模型同步完成');
+  } catch (error) {
+    console.error('数据库连接或同步失败:', error);
+    throw error;
+  }
+}
+
+// 导出模型实例
+export const models = {
+  User,
   Worker,
   Order,
-  User
+  Member,
+  Recharge,
+  CommissionRule,
+  Role,
+  UserRoleModel,
+  WorkerSettlement
 };
 
-// 类型定义
-export type ModelType = typeof Member | typeof Recharge | typeof Worker | typeof Order | typeof User;
-export type ModelInstance = Member | Recharge | Worker | Order | User;
+// 导出单个模型
+export { User, Worker, Order, Member, Recharge, CommissionRule, Role, UserRoleModel, WorkerSettlement };
+
+// 导出类型
+export type ModelType = typeof models;
+export type ModelInstance = InstanceType<ModelType[keyof ModelType]>;
+
+// 导出枚举
+export { UserRole, UserStatus } from './User';
+export { RoleStatus } from './Role';
+export { SettlementStatus, SettlementType } from './WorkerSettlement';
+export { MemberStatus } from './Member';
+export { RechargeMethod } from './Recharge';
+export { CommissionRuleType, CommissionRuleStatus } from './CommissionRule';
+export { WorkerType, WorkerStatus } from './Worker';
+export { PayMethod, OrderStatus } from './Order';
+
+export default sequelize;
