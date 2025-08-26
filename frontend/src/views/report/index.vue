@@ -589,16 +589,22 @@ const loadPaymentDistribution = async () => {
 const loadMemberRanking = async () => {
   try {
     console.log('开始加载会员排行榜...')
-    const period = memberRankingPeriod.value
-    const endDate = new Date()
-    const startDate = new Date()
-    
-    if (period === 'today') {
-      startDate.setHours(0, 0, 0, 0)
-    } else if (period === 'week') {
-      startDate.setDate(endDate.getDate() - 7)
-    } else if (period === 'month') {
-      startDate.setMonth(endDate.getMonth() - 1)
+    let startDate: Date
+    let endDate: Date
+    if (statsDateRange.value && statsDateRange.value.length === 2) {
+      startDate = new Date(statsDateRange.value[0])
+      endDate = new Date(statsDateRange.value[1])
+    } else {
+      const period = memberRankingPeriod.value
+      endDate = new Date()
+      startDate = new Date()
+      if (period === 'today') {
+        startDate.setHours(0, 0, 0, 0)
+      } else if (period === 'week') {
+        startDate.setDate(endDate.getDate() - 7)
+      } else if (period === 'month') {
+        startDate.setMonth(endDate.getMonth() - 1)
+      }
     }
     
     console.log('会员排行榜查询参数:', {
@@ -655,16 +661,22 @@ const loadMemberRanking = async () => {
 const loadWorkerRanking = async () => {
   try {
     console.log('开始加载打手排行榜...')
-    const period = workerRankingPeriod.value
-    const endDate = new Date()
-    const startDate = new Date()
-    
-    if (period === 'today') {
-      startDate.setHours(0, 0, 0, 0)
-    } else if (period === 'week') {
-      startDate.setDate(endDate.getDate() - 7)
-    } else if (period === 'month') {
-      startDate.setMonth(endDate.getMonth() - 1)
+    let startDate: Date
+    let endDate: Date
+    if (statsDateRange.value && statsDateRange.value.length === 2) {
+      startDate = new Date(statsDateRange.value[0])
+      endDate = new Date(statsDateRange.value[1])
+    } else {
+      const period = workerRankingPeriod.value
+      endDate = new Date()
+      startDate = new Date()
+      if (period === 'today') {
+        startDate.setHours(0, 0, 0, 0)
+      } else if (period === 'week') {
+        startDate.setDate(endDate.getDate() - 7)
+      } else if (period === 'month') {
+        startDate.setMonth(endDate.getMonth() - 1)
+      }
     }
     
     console.log('打手排行榜查询参数:', {
@@ -697,8 +709,8 @@ const loadWorkerRanking = async () => {
         console.log(`处理第${index + 1}条数据:`, item)
         return {
           id: item.workerId || item.id || index + 1,
-          nickname: item.workerNickname || item.nickname || item.name || '未知打手',
-          phone: item.workerUsername || item.username || item.phone || '-',
+          nickname: item.workerName || item.workerNickname || item.nickname || item.name || '未知打手',
+          phone: item.workerPhone || item.workerUsername || item.username || item.phone || '-',
           avatar: '',
           earnings: item.totalIncome || item.total_amount || item.earnings || 0,
           orderCount: item.orderCount || item.order_count || 0
@@ -886,6 +898,12 @@ onMounted(async () => {
   setTimeout(() => {
     console.log('开始初始化图表...')
     initCharts()
+    // 选择统计区间后，联动刷新趋势与排行榜，保证一致
+    if (statsDateRange.value && statsDateRange.value.length === 2) {
+      loadTrendData()
+      loadMemberRanking()
+      loadWorkerRanking()
+    }
   }, 200)
 })
 </script>

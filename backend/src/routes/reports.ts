@@ -468,7 +468,12 @@ router.get('/worker-ranking', [
       const data = item.toJSON();
       return {
         rank: index + 1,
-        worker: data.worker,
+        worker: {
+          id: data.worker?.id,
+          name: data.worker?.name,
+          real_name: data.worker?.real_name,
+          phone: data.worker?.phone
+        },
         order_count: parseInt(data.order_count),
         total_amount: parseFloat(data.total_amount) || 0,
         total_duration: parseFloat(data.total_duration) || 0
@@ -491,6 +496,7 @@ router.get('/worker-ranking', [
       data: formattedRanking.map((item: any) => ({
         workerId: String(item.worker.id),
         workerName: item.worker.name || item.worker.real_name || '',
+        workerPhone: item.worker.phone || '',
         workerType: item.worker.type || '',
         totalIncome: parseFloat(item.total_amount) || 0,
         orderCount: parseInt(item.order_count) || 0,
