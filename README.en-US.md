@@ -63,7 +63,7 @@ git clone <repository-url>
 cd daodao
 
 # Install all dependencies (root, backend, frontend)
-npm run install:all
+pnpm run install:all
 ```
 
 ### Environment Configuration
@@ -114,7 +114,7 @@ mysql -u root -p payboard_db < database_updates.sql
 
 ```bash
 # Start both frontend and backend development servers
-npm run dev:full
+pnpm run dev:full
 ```
 
 Access URLs:
@@ -197,10 +197,10 @@ daodao/
 ### Root Directory Commands
 ```bash
 # Install all dependencies
-npm run install:all
+pnpm run install:all
 
 # Start both frontend and backend development servers
-npm run dev:full
+pnpm run dev:full
 
 # Build all projects
 npm run build:all

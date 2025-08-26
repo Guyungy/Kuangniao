@@ -102,7 +102,7 @@ git clone <repository-url>
 cd daodao
 
 # 安装所有依赖（根目录、后端、前端）
-npm run install:all
+pnpm run install:all
 ```
 
 ### 环境配置
@@ -153,7 +153,7 @@ mysql -u root -p payboard_db < database_updates.sql
 
 ```bash
 # 同时启动前后端开发服务器
-npm run dev:full
+pnpm run dev:full
 ```
 
 访问地址：
@@ -236,10 +236,10 @@ daodao/
 ### 根目录命令
 ```bash
 # 安装所有依赖
-npm run install:all
+pnpm run install:all
 
 # 同时启动前后端开发服务器
-npm run dev:full
+pnpm run dev:full
 
 # 构建所有项目
 npm run build:all
