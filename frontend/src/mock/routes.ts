@@ -30,12 +30,12 @@ export const mockRoutes: RouteVO[] = [
     ]
   },
   {
-    path: '/recharge',
-    name: 'Recharge',
+    path: '/finance',
+    name: 'Finance',
     component: 'Layout',
-    redirect: '/recharge/index',
+    redirect: '/finance/recharge',
     meta: {
-      title: '充值管理',
+      title: '财务管理',
       icon: 'money',
       alwaysShow: false,
       hidden: false,
@@ -43,12 +43,24 @@ export const mockRoutes: RouteVO[] = [
     },
     children: [
       {
-        path: 'index',
+        path: 'recharge',
         name: 'RechargeIndex',
         component: 'recharge/index',
         meta: {
           title: '充值记录',
           icon: 'money',
+          hidden: false,
+          keepAlive: true
+        },
+        children: []
+      },
+      {
+        path: 'commission',
+        name: 'CommissionRuleIndex',
+        component: 'commission-rule/index',
+        meta: {
+          title: '分成设置',
+          icon: 'setting',
           hidden: false,
           keepAlive: true
         },

@@ -14,7 +14,7 @@
 ### 🎯 核心功能
 
 - **会员管理** - 会员信息管理、充值记录、消费记录
-- **充值管理** - 会员充值、支付方式管理、充值流水
+- **财务管理** - 充值记录管理、分成规则设置、收益分配
 - **订单管理** - 代练订单创建、状态跟踪、支付处理
 - **打手管理** - 打手信息管理、接单统计、绩效分析
 - **报表中心** - 数据可视化、趋势分析、排行榜
@@ -54,6 +54,45 @@
 - Node.js >= 18.0.0
 - pnpm >= 8.0.0
 - MySQL >= 8.0.0
+
+### 本地开发部署
+
+#### 1. 启动MySQL数据库
+```bash
+# 使用Docker启动MySQL（推荐）
+docker run -d --name payboard-mysql -p 3306:3306 \
+  -e MYSQL_ROOT_PASSWORD=root \
+  -e MYSQL_DATABASE=payboard \
+  -e MYSQL_USER=app \
+  -e MYSQL_PASSWORD=app123 \
+  -v ${PWD}/payboard.sql:/docker-entrypoint-initdb.d/payboard.sql \
+  mysql:8.0.43
+
+# 或者使用本地MySQL服务
+# 确保MySQL运行在3306端口，创建payboard数据库
+```
+
+#### 2. 导入数据库结构
+```bash
+# 导入数据库结构和初始数据
+mysql -u root -p payboard < payboard.sql
+```
+
+#### 3. 启动后端服务
+```bash
+cd backend
+pnpm install
+pnpm dev
+# 后端将在 http://localhost:10000 启动
+```
+
+#### 4. 启动前端服务
+```bash
+cd frontend
+pnpm install
+pnpm dev
+# 前端将在 http://localhost:3000 启动
+```
 
 ### 安装依赖
 
@@ -437,3 +476,135 @@ mysqldump -h 127.0.0.1 -P 3306 -uroot -proot --databases payboard > backup.sql
 - 3306 被占用：将 `"3306:3306"` 改为 `"3307:3306"` 后重启。
 - 首次导入未触发：执行 `docker compose down -v` 再 `up -d`。
 - Windows 挂载失败：在 Docker Desktop → Settings → Resources → File Sharing 中允许项目目录共享。
+
+## 💰 财务管理功能
+
+### 功能概述
+财务管理模块整合了原有的充值管理功能，并新增了灵活的分成规则设置系统，支持多种分成策略和优先级管理。
+
+### 主要特性
+
+#### 1. 充值记录管理
+- **充值操作**：支持会员余额充值和扫码充值
+- **记录追踪**：完整的充值流水记录，包含操作人信息
+- **状态管理**：支持充值记录的创建、取消等状态变更
+- **余额更新**：自动更新会员余额和累计充值金额
+
+#### 2. 分成规则设置
+- **三种规则类型**：
+  - **全局分成**：系统默认分成比例，适用于所有打手
+  - **级别分成**：根据打手级别（A、S、SSR、魔王）设置不同分成
+  - **自定义分成**：为特定打手设置个性化分成比例
+
+- **优先级系统**：
+  - 自定义分成 > 级别分成 > 全局分成
+  - 数字越大优先级越高
+  - 系统自动选择最高优先级的适用规则
+
+- **灵活配置**：
+  - 分成比例：0-100%（精确到小数点后4位）
+  - 金额限制：可设置最小/最大金额限制
+  - 状态管理：支持启用/禁用规则
+  - 备注说明：详细的规则说明和备注
+
+#### 3. 分成计算逻辑
+```typescript
+// 分成计算优先级
+1. 自定义分成（worker_id 匹配）
+2. 级别分成（worker_level 匹配）
+3. 全局分成（默认规则）
+
+// 示例：订单金额100元
+- 全局分成：70% → 打手70元，平台30元
+- SSR级别分成：75% → 打手75元，平台25元
+- 自定义分成：80% → 打手80元，平台20元
+```
+
+### 数据库结构
+
+#### commission_rules 表
+```sql
+CREATE TABLE `commission_rules` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `name` varchar(100) NOT NULL COMMENT '规则名称',
+  `type` enum('global','level','custom') NOT NULL COMMENT '规则类型',
+  `worker_level` varchar(20) NULL COMMENT '打手级别',
+  `worker_id` int NULL COMMENT '打手ID',
+  `commission_rate` decimal(5,4) NOT NULL COMMENT '分成比例',
+  `min_amount` decimal(10,2) NULL COMMENT '最小金额限制',
+  `max_amount` decimal(10,2) NULL COMMENT '最大金额限制',
+  `status` enum('active','inactive') NOT NULL DEFAULT 'active',
+  `priority` int NOT NULL DEFAULT 0 COMMENT '优先级',
+  `remark` varchar(255) NULL COMMENT '备注',
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  INDEX `idx_type`(`type`),
+  INDEX `idx_priority`(`priority`)
+);
+```
+
+### API接口
+
+#### 分成规则管理
+- `GET /api/v1/commission-rules` - 获取分成规则列表
+- `GET /api/v1/commission-rules/:id` - 获取规则详情
+- `POST /api/v1/commission-rules` - 创建新规则
+- `PUT /api/v1/commission-rules/:id` - 更新规则
+- `DELETE /api/v1/commission-rules/:id` - 删除规则
+
+#### 分成计算
+- `POST /api/v1/commission-rules/calculate` - 计算打手分成
+  ```json
+  {
+    "worker_id": 1,
+    "amount": 100.00,
+    "worker_level": "SSR"
+  }
+  ```
+
+### 使用说明
+
+#### 1. 访问路径
+- 财务管理：`/finance`
+- 充值记录：`/finance/recharge`
+- 分成设置：`/finance/commission`
+
+#### 2. 创建分成规则
+1. 进入"财务管理" → "分成设置"
+2. 点击"新增规则"
+3. 选择规则类型（全局/级别/自定义）
+4. 设置分成比例和优先级
+5. 保存规则
+
+#### 3. 规则优先级示例
+```typescript
+// 假设有以下规则：
+1. 全局默认分成：70%，优先级0
+2. SSR级别分成：75%，优先级10
+3. 魔王级别分成：80%，优先级20
+4. 张三自定义分成：85%，优先级30
+
+// 对于SSR级别的张三，系统会选择：
+// 张三自定义分成（85%），因为优先级最高
+```
+
+### 技术实现
+
+#### 后端实现
+- **模型**：`CommissionRule` 继承 Sequelize Model
+- **路由**：完整的RESTful API实现
+- **验证**：使用 express-validator 进行参数验证
+- **关联**：与 Worker 模型建立外键关联
+
+#### 前端实现
+- **页面**：基于 Element Plus 的管理界面
+- **API**：完整的CRUD操作封装
+- **状态管理**：响应式数据管理和表单验证
+- **用户体验**：搜索、筛选、分页等交互功能
+
+### 扩展建议
+- **批量操作**：支持批量导入/导出分成规则
+- **历史记录**：记录规则变更历史
+- **审批流程**：重要规则变更需要审批
+- **数据分析**：分成效果分析和优化建议

@@ -217,4 +217,38 @@ INSERT INTO `workers_backup` VALUES (1, '小明', '张小明', '1101011990010112
 INSERT INTO `workers_backup` VALUES (2, '小红', '李小红', '110101199002022345', '13900139002', 'xiaohong_wx', '110101199002022345', '中国工商银行', 45.00, '跑刀', '禁用', NULL, '2025-08-23 04:59:48', '2025-08-23 13:43:05', '22');
 INSERT INTO `workers_backup` VALUES (3, '小刚', '王小刚', '110101199003033456', '13900139003', 'xiaogang_wx', NULL, NULL, 55.00, '陪练', '禁用', NULL, '2025-08-23 04:59:48', '2025-08-23 15:52:33', NULL);
 
+-- ----------------------------
+-- Table structure for commission_rules
+-- ----------------------------
+DROP TABLE IF EXISTS `commission_rules`;
+CREATE TABLE `commission_rules`  (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `name` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '规则名称',
+  `type` enum('global','level','custom') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '规则类型：global-全局，level-级别，custom-自定义',
+  `worker_level` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '打手级别（仅level类型使用）',
+  `worker_id` int NULL DEFAULT NULL COMMENT '打手ID（仅custom类型使用）',
+  `commission_rate` decimal(5, 4) NOT NULL COMMENT '分成比例（0.0000-1.0000）',
+  `min_amount` decimal(10, 2) NULL DEFAULT 0.00 COMMENT '最小金额限制',
+  `max_amount` decimal(10, 2) NULL DEFAULT NULL COMMENT '最大金额限制',
+  `status` enum('active','inactive') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'active' COMMENT '状态',
+  `priority` int NOT NULL DEFAULT 0 COMMENT '优先级（数字越大优先级越高）',
+  `remark` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '备注',
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (`id`) USING BTREE,
+  INDEX `idx_type`(`type` ASC) USING BTREE,
+  INDEX `idx_worker_level`(`worker_level` ASC) USING BTREE,
+  INDEX `idx_worker_id`(`worker_id` ASC) USING BTREE,
+  INDEX `idx_status`(`status` ASC) USING BTREE,
+  INDEX `idx_priority`(`priority` ASC) USING BTREE,
+  CONSTRAINT `fk_commission_rules_worker` FOREIGN KEY (`worker_id`) REFERENCES `workers` (`id`) ON DELETE CASCADE ON UPDATE RESTRICT
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = '分成规则表' ROW_FORMAT = Dynamic;
+
+-- ----------------------------
+-- Records of commission_rules
+-- ----------------------------
+INSERT INTO `commission_rules` VALUES (1, '全局默认分成', 'global', NULL, NULL, 0.7000, 0.00, NULL, 'active', 0, '系统默认分成比例', '2025-08-25 15:00:00', '2025-08-25 15:00:00');
+INSERT INTO `commission_rules` VALUES (2, 'SSR级别分成', 'level', 'SSR', NULL, 0.7500, 0.00, NULL, 'active', 10, 'SSR级别打手分成比例', '2025-08-25 15:00:00', '2025-08-25 15:00:00');
+INSERT INTO `commission_rules` VALUES (3, '魔王级别分成', 'level', '魔王', NULL, 0.8000, 0.00, NULL, 'active', 20, '魔王级别打手分成比例', '2025-08-25 15:00:00', '2025-08-25 15:00:00');
+
 SET FOREIGN_KEY_CHECKS = 1;

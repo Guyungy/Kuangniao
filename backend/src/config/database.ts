@@ -8,16 +8,17 @@ import { Worker } from '../models/Worker';
 import { Order } from '../models/Order';
 import { Recharge } from '../models/Recharge';
 import { User } from '../models/User';
+import { CommissionRule } from '../models/CommissionRule';
 
 dotenv.config();
 
-// 数据库配置
+// 数据库配置 - 本地MySQL
 const sequelize = new Sequelize({
-  database: process.env.DB_NAME || 'payboard',
-  username: process.env.DB_USER || 'root',
-  password: process.env.DB_PASSWORD || '123456',
-  host: process.env.DB_HOST || 'localhost',
-  port: parseInt(process.env.DB_PORT || '3306'),
+  database: 'payboard',
+  username: 'root',
+  password: '123456',
+  host: '192.168.50.17',
+  port: 3306,
   dialect: 'mysql',
   timezone: '+08:00',
   logging: process.env.NODE_ENV === 'development' ? console.log : false,
@@ -32,7 +33,7 @@ const sequelize = new Sequelize({
     max: 3,
     timeout: 3000
   },
-  models: [Member, Worker, Order, Recharge, User],
+  models: [Member, Worker, Order, Recharge, User, CommissionRule],
   define: {
     timestamps: true,
     underscored: true,

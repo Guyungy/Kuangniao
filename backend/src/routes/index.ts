@@ -6,6 +6,7 @@ import rechargeRoutes from './recharges';
 import workerRoutes from './workers';
 import orderRoutes from './orders';
 import reportRoutes from './reports';
+import commissionRuleRoutes from './commission-rules';
 
 const router = Router();
 
@@ -20,6 +21,7 @@ router.use(`${API_PREFIX}/recharges`, rechargeRoutes);
 router.use(`${API_PREFIX}/workers`, workerRoutes);
 router.use(`${API_PREFIX}/orders`, orderRoutes);
 router.use(`${API_PREFIX}/reports`, reportRoutes);
+router.use(`${API_PREFIX}/commission-rules`, commissionRuleRoutes);
 
 // 健康检查接口
 router.get('/health', (req, res) => {

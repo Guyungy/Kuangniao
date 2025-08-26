@@ -1,4 +1,4 @@
-import axios, { type InternalAxiosRequestConfig, type AxiosResponse } from "axios";
+import axios, { type InternalAxiosRequestConfig, type AxiosResponse, type AxiosInstance } from "axios";
 import qs from "qs";
 import { ElMessage, ElNotification } from "element-plus";
 import { useUserStoreHook } from "@/store/modules/user-store";
@@ -10,10 +10,11 @@ import router from "@/router";
  * 创建 HTTP 请求实例
  */
 const httpRequest = axios.create({
-  baseURL: import.meta.env.VITE_APP_BASE_API,
-  timeout: 50000,
-  headers: { "Content-Type": "application/json;charset=utf-8" },
-  paramsSerializer: (params) => qs.stringify(params),
+  baseURL: 'http://localhost:10000/api/v1', // 本地后端地址
+  timeout: 10000,
+  headers: {
+    'Content-Type': 'application/json;charset=utf-8'
+  }
 });
 
 /**

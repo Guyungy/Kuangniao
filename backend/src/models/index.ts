@@ -4,14 +4,16 @@ import { Recharge } from './Recharge';
 import { Worker } from './Worker';
 import { Order } from './Order';
 import { User } from './User';
+import CommissionRule from './CommissionRule';
 
 // 导出所有模型
 export {
   Member,
-  Recharge,
-  Worker,
   Order,
-  User
+  Recharge,
+  User,
+  Worker,
+  CommissionRule
 };
 
 // 导出枚举

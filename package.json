@@ -12,7 +12,12 @@
   "devDependencies": {
     "concurrently": "^8.2.2"
   },
-  "keywords": ["payboard", "fullstack", "vue3", "nodejs"],
+  "keywords": [
+    "payboard",
+    "fullstack",
+    "vue3",
+    "nodejs"
+  ],
   "author": "PayBoard Team",
   "license": "MIT"
 }
