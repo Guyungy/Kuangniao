@@ -9,7 +9,7 @@ export const constantRoutes: RouteRecordRaw[] = [
     path: '/login',
     name: 'Login',
     component: () => import('@/views/login/index.vue'),
-    meta: { title: '登录' }
+    meta: { title: '登录', hidden: true }
   },
   {
     path: '/',
@@ -17,32 +17,32 @@ export const constantRoutes: RouteRecordRaw[] = [
     redirect: '/dashboard',
     children: [
       // 按要求排序（通过 meta.sort 控制）
-      { path: 'dashboard', name: 'Dashboard', component: () => import('@/views/dashboard/index.vue'), meta: { title: '首页', icon: 'dashboard', sort: 10_001 } },
-      { path: 'order', name: 'Order', component: () => import('@/views/order/index.vue'), meta: { title: '订单管理', icon: 'order', sort: 10_002 } },
-      { path: 'worker', name: 'Worker', component: () => import('@/views/worker/index.vue'), meta: { title: '打手管理', icon: 'worker', sort: 10_003 } },
-      { path: 'member', name: 'Member', component: () => import('@/views/member/index.vue'), meta: { title: '会员管理', icon: 'member', sort: 10_004 } },
-      { path: 'recharge', name: 'Recharge', component: () => import('@/views/recharge/index.vue'), meta: { title: '充值管理', icon: 'recharge', sort: 10_005 } },
-      { path: 'commission-rule', name: 'CommissionRule', component: () => import('@/views/commission-rule/index.vue'), meta: { title: '佣金规则', icon: 'commission-rule', sort: 10_006 } },
-      { path: 'worker-settlement', name: 'WorkerSettlement', component: () => import('@/views/worker-settlement/index.vue'), meta: { title: '打手对账', icon: 'settlement', sort: 10_007 } },
+      { path: 'dashboard', name: 'Dashboard', component: () => import('@/views/dashboard/index.vue'), meta: { title: '首页', icon: 'dashboard', sort: 1 } },
+      { path: 'order', name: 'Order', component: () => import('@/views/order/index.vue'), meta: { title: '订单管理', icon: 'order', sort: 2 } },
+      { path: 'worker', name: 'Worker', component: () => import('@/views/worker/index.vue'), meta: { title: '打手管理', icon: 'worker', sort: 3 } },
+      { path: 'worker-settlement', name: 'WorkerSettlement', component: () => import('@/views/worker-settlement/index.vue'), meta: { title: '打手对账', icon: 'settlement', sort: 4 } },
+      { path: 'member', name: 'Member', component: () => import('@/views/member/index.vue'), meta: { title: '会员管理', icon: 'member', sort: 5 } },
+      { path: 'recharge', name: 'Recharge', component: () => import('@/views/recharge/index.vue'), meta: { title: '充值管理', icon: 'recharge', sort: 6 } },
+      { path: 'commission-rule', name: 'CommissionRule', component: () => import('@/views/commission-rule/index.vue'), meta: { title: '佣金规则', icon: 'commission-rule', sort: 7 } },
       // 数据与财务
-      { path: 'report', name: 'Report', component: () => import('@/views/report/index.vue'), meta: { title: '数据报表', icon: 'report', sort: 20_001 } },
+      { path: 'report', name: 'Report', component: () => import('@/views/report/index.vue'), meta: { title: '数据报表', icon: 'report', sort: 8 } },
       // 简化：先用充值页面代替财务管理落地页，后续可替换为独立页面
-      { path: 'finance', name: 'Finance', component: () => import('@/views/recharge/index.vue'), meta: { title: '财务管理', icon: 'money', sort: 20_002 } },
+      { path: 'finance', name: 'Finance', component: () => import('@/views/recharge/index.vue'), meta: { title: '财务管理', icon: 'money', sort: 9 } },
       // ⚙️ 系统管理
       {
         path: 'system',
         component: () => import('@/views/system/index.vue'),
-        meta: { title: '系统管理', icon: 'system', alwaysShow: true, sort: 30_000 },
+        meta: { title: '系统管理', icon: 'system', alwaysShow: true, sort: 100 },
         children: [
           { path: 'user', name: 'SystemUser', component: () => import('@/views/system/user/index.vue'), meta: { title: '用户管理', icon: 'user', sort: 1 } },
           { path: 'role', name: 'SystemRole', component: () => import('@/views/system/role/index.vue'), meta: { title: '角色管理', icon: 'role', sort: 2 } },
         ]
       },
-      { path: 'profile', name: 'Profile', component: () => import('@/views/profile/index.vue'), meta: { title: '个人中心', icon: 'profile', sort: 99_999 } },
+      { path: 'profile', name: 'Profile', component: () => import('@/views/profile/index.vue'), meta: { title: '个人中心', icon: 'profile', sort: 1000 } },
     ]
   },
-  { path: '/redirect', component: () => import('@/views/redirect/index.vue'), meta: { title: '重定向' } },
-  { path: '/:pathMatch(.*)*', name: 'NotFound', component: () => import('@/views/error/404.vue'), meta: { title: '404' } }
+  { path: '/redirect', component: () => import('@/views/redirect/index.vue'), meta: { title: '重定向', hidden: true } },
+  { path: '/:pathMatch(.*)*', name: 'NotFound', component: () => import('@/views/error/404.vue'), meta: { title: '404', hidden: true } }
 ];
 
 const router = createRouter({

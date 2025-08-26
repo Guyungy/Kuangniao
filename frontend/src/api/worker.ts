@@ -321,6 +321,43 @@ const WorkerAPI = {
     });
   },
 
+  /** 获取打手下拉选项（用于选择器） */
+  getOptions(): Promise<Array<{ value: number; label: string }>> {
+    const pageSize = 100; // 后端限制 limit <= 100
+    const maxFetch = 1000; // 保护上限，防止无限请求
+    let page = 1;
+    let collected: any[] = [];
+
+    const fetchPage = (): Promise<any> => {
+      return request<any, any>({
+        url: WORKER_BASE_URL,
+        method: 'get',
+        params: { page, limit: pageSize }
+      }).then((response) => {
+        const list = Array.isArray(response?.list) ? response.list : [];
+        const total = Number(response?.total || 0);
+        collected = collected.concat(list);
+        const fetched = collected.length;
+        const reachedMax = fetched >= total || fetched >= maxFetch;
+        if (!reachedMax) {
+          page += 1;
+          return fetchPage();
+        }
+        return collected;
+      });
+    };
+
+    return fetchPage()
+      .then((all: any[]) => all.map((item: any) => ({
+        value: Number(item.id),
+        label: String(item.name || item.nickname || item.real_name || item.phone || item.id)
+      })))
+      .catch((error) => {
+        console.error('获取打手选项失败:', error);
+        return [];
+      });
+  },
+
   /** 获取可用打手列表 */
   getAvailableWorkers() {
     return request<any, any>({
