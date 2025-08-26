@@ -1,11 +1,11 @@
 import { Router, Request, Response } from 'express';
-import { Order, Member, Recharge, Worker, PayMethod, RechargeMethod } from '../models';
+import { Order, Member, Recharge, Worker, PayMethod, RechargeMethod, CommissionRule, CommissionRuleStatus, CommissionRuleType } from '../models';
 import { authenticateToken } from '../middleware/auth';
 import { query, validationResult } from 'express-validator';
 import { Op } from 'sequelize';
 import { sequelize } from '../config/database';
 
-const router = Router();
+const router: Router = Router();
 
 // 所有路由都需要认证
 router.use(authenticateToken);
@@ -17,7 +17,7 @@ router.get('/today-overview', async (req: Request, res: Response): Promise<void>
     const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
     const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
 
-    // 今日订单统计
+    // 今日订单统计（数量、金额、时长）
     const todayOrders = await Order.findOne({
       where: {
         created_at: {
@@ -31,6 +31,44 @@ router.get('/today-overview', async (req: Request, res: Response): Promise<void>
       ],
       raw: true
     });
+
+    // 今日订单明细用于利润计算
+    const todayOrderList = await Order.findAll({
+      where: {
+        created_at: {
+          [Op.between]: [startOfDay, endOfDay]
+        }
+      },
+      attributes: ['worker_id', 'price_final'],
+      raw: true
+    });
+
+    // 预加载分成规则
+    const rules = await CommissionRule.findAll({ where: { status: CommissionRuleStatus.ACTIVE }, order: [['priority', 'DESC']] });
+    // 建规则索引
+    const globalRule = rules.find(r => r.type === CommissionRuleType.GLOBAL) || null;
+    const levelRules = rules.filter(r => r.type === CommissionRuleType.LEVEL);
+    const customRules = rules.filter(r => r.type === CommissionRuleType.CUSTOM);
+
+    // 获取所有相关打手的级别
+    const workerIds = Array.from(new Set(todayOrderList.map(o => o.worker_id).filter(Boolean)));
+    const workers = workerIds.length > 0 ? await Worker.findAll({ where: { id: { [Op.in]: workerIds } }, attributes: ['id', 'level'], raw: true }) : [];
+    const workerLevelMap = new Map<number, string>(workers.map(w => [w.id as number, (w as any).level || '']));
+
+    // 选择分成比例函数
+    const pickRate = (workerId: number): number => {
+      const custom = customRules.find(r => r.worker_id === workerId);
+      if (custom) return Number(custom.commission_rate);
+      const level = workerLevelMap.get(workerId) || '';
+      const levelRule = level ? levelRules.find(r => r.worker_level === level) : undefined;
+      if (levelRule) return Number(levelRule.commission_rate);
+      return globalRule ? Number(globalRule.commission_rate) : 0;
+    };
+
+    // 计算今日流水与利润
+    const todayTurnover = todayOrderList.reduce((sum, o: any) => sum + Number(o.price_final || 0), 0);
+    const todayWorkerShare = todayOrderList.reduce((sum, o: any) => sum + Number(o.price_final || 0) * pickRate(Number(o.worker_id)), 0);
+    const todayProfit = todayTurnover - todayWorkerShare;
 
     // 今日充值统计
     const todayRecharges = await Recharge.findOne({
@@ -80,7 +118,9 @@ router.get('/today-overview', async (req: Request, res: Response): Promise<void>
       todayRecharge: parseInt((todayRecharges as any)?.count || '0'),
       todayMembers: todayNewMembers,
       todayWorkers: parseInt((activeWorkers[0] as any)?.count || '0'),
-      todayIncome: parseFloat((todayOrders as any)?.amount || '0')
+      todayIncome: parseFloat((todayOrders as any)?.amount || '0'),
+      todayTurnover,
+      todayProfit
     });
 
     // 强制发送200状态码，避免304
@@ -93,6 +133,8 @@ router.get('/today-overview', async (req: Request, res: Response): Promise<void>
         todayMembers: todayNewMembers,
         todayWorkers: parseInt((activeWorkers[0] as any)?.count || '0'),
         todayIncome: parseFloat((todayOrders as any)?.amount || '0'),
+        todayTurnover: Number(todayTurnover.toFixed(2)),
+        todayProfit: Number(todayProfit.toFixed(2)),
         platformBalance: 0 // 暂时设为0，后续可以添加平台余额计算
       }
     });
@@ -180,27 +222,51 @@ router.get('/trends', [
       });
     }
 
+    // 将结果整理为完整连续日期（缺失补零）
+    const toYmd = (d: Date) => {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${y}-${m}-${day}`;
+    };
+    const aggMap: Record<string, { count: number; amount: number }> = {};
+    trends.forEach((t: any) => {
+      const key = typeof t.date === 'string' ? t.date : toYmd(new Date(t.date));
+      aggMap[key] = { count: parseInt(t.count), amount: parseFloat(t.amount) || 0 };
+    });
+
+    // 规范化 start/end 到日期边界
+    const startDay = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+    const endDay = new Date(end.getFullYear(), end.getMonth(), end.getDate());
+    const fullSeries: any[] = [];
+    for (let d = new Date(startDay); d <= endDay; d.setDate(d.getDate() + 1)) {
+      const key = toYmd(d);
+      const point = aggMap[key] || { count: 0, amount: 0 };
+      fullSeries.push({
+        date: key,
+        orderCount: type === 'order' ? point.count : 0,
+        orderAmount: type === 'order' ? point.amount : 0,
+        rechargeCount: type === 'recharge' ? point.count : 0,
+        rechargeAmount: type === 'recharge' ? point.amount : 0
+      });
+    }
+
     // 添加调试日志
     console.log('📊 趋势数据查询结果:', {
       type,
       period,
-      startDate: start.toISOString(),
-      endDate: end.toISOString(),
+      startDate: startDay.toISOString(),
+      endDate: endDay.toISOString(),
       trendsCount: trends.length,
-      trends: trends.slice(0, 3) // 只显示前3条
+      seriesCount: fullSeries.length,
+      sample: fullSeries.slice(0, 3)
     });
 
     // 强制发送200状态码，避免304
     res.status(200).json({
       code: '00000',
       message: '获取趋势数据成功',
-      data: trends.map((trend: any) => ({
-        date: trend.date,
-        orderCount: type === 'order' ? parseInt(trend.count) : 0,
-        orderAmount: type === 'order' ? parseFloat(trend.amount) || 0 : 0,
-        rechargeCount: type === 'recharge' ? parseInt(trend.count) : 0,
-        rechargeAmount: type === 'recharge' ? parseFloat(trend.amount) || 0 : 0
-      }))
+      data: fullSeries
     });
   } catch (error) {
     console.error('获取趋势数据错误:', error);
