@@ -91,7 +91,14 @@ pnpm dev
 cd frontend
 pnpm install
 pnpm dev
-# 前端将在 http://localhost:3000 启动
+# 前端将在 http://localhost:3001 启动
+```
+
+#### 5. 一键启动前后端（推荐）
+```bash
+# 在项目根目录执行
+pnpm run dev:full
+# 这将同时启动前端和后端服务
 ```
 
 ### 安装依赖
@@ -157,8 +164,8 @@ pnpm run dev:full
 ```
 
 访问地址：
-- 前端: http://localhost:5173
-- 后端 API: http://localhost:3000
+- 前端: http://localhost:3001
+- 后端 API: http://localhost:10000
 
 ## 📁 项目结构
 
