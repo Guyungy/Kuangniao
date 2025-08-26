@@ -13,7 +13,6 @@ const viteEnv = (import.meta as any).env || {};
 // 优先使用 Vite 代理前缀（如 /dev-api），否则回退到完整后端地址
 const PROXY_BASE = viteEnv.VITE_APP_BASE_API; // 例如 '/dev-api'
 const API_BASE_URL = PROXY_BASE || viteEnv.VITE_API_BASE_URL || 'http://localhost:10000/api/v1';
-console.log('🌐 使用API基础地址:', API_BASE_URL, '(代理前缀优先)');
 
 const httpRequest = axios.create({
   baseURL: API_BASE_URL, // 可通过 VITE_API_BASE_URL 配置
@@ -40,20 +39,7 @@ httpRequest.interceptors.request.use(
       delete config.headers.Authorization;
     }
 
-    // 添加调试日志
-    console.log('🚀 === 请求拦截器调试 ===');
-    const fullUrl = `${config.baseURL || ''}${config.url || ''}`;
-    console.log('请求URL:', fullUrl);
-    console.log('请求方法:', config.method?.toUpperCase());
-    console.log('请求参数:', config.params);
-    console.log('请求头:', config.headers);
-    console.log('Authorization头:', config.headers.Authorization);
-    console.log('AccessToken:', accessToken);
-    
-    if (config.method === 'post' || config.method === 'put') {
-      console.log('请求数据:', config.data);
-      console.log('请求数据类型:', typeof config.data);
-    }
+    // 关闭调试日志
 
     return config;
   },
@@ -71,17 +57,7 @@ httpRequest.interceptors.response.use(
     // 计算耗时
     const startTime: number | undefined = (response.config as any)?._meta?.startTime;
     const duration = typeof startTime === 'number' ? Date.now() - startTime : undefined;
-    console.log('📥 === 响应拦截器调试 ===');
-    console.log('响应状态码:', response.status);
-    console.log('响应状态文本:', response.statusText);
-    console.log('响应头:', response.headers);
-    console.log('响应配置:', response.config);
-    if (duration !== undefined) {
-      console.log(`⏱️ 请求耗时: ${duration}ms`);
-    }
-    console.log('完整响应对象:', response);
-    console.log('响应数据:', response.data);
-    console.log('响应数据类型:', typeof response.data);
+    // 关闭调试日志
     
     // 如果响应是二进制流，则直接返回（用于文件下载、Excel 导出等）
     if (response.config.responseType === "blob") {
@@ -135,19 +111,7 @@ httpRequest.interceptors.response.use(
     return Promise.reject(new Error(errorMessage));
   },
   (error) => {
-    console.error('❌ === 响应错误拦截器 ===');
-    console.error('错误对象:', error);
-    console.error('错误类型:', error.constructor.name);
-    console.error('错误消息:', error.message);
-    console.error('错误状态码:', error.response?.status);
-    console.error('错误状态文本:', error.response?.statusText);
-    console.error('错误响应数据:', error.response?.data);
-    console.error('错误请求配置:', error.config);
-    console.error('错误请求URL:', error.config?.url);
-    console.error('错误请求方法:', error.config?.method);
-    console.error('错误请求头:', error.config?.headers);
-    console.error('错误请求参数:', error.config?.params);
-    console.error('错误请求数据:', error.config?.data);
+    // 关闭调试日志
     // 计算耗时（若可用）
     const startTime: number | undefined = (error.config as any)?._meta?.startTime;
     const duration = typeof startTime === 'number' ? Date.now() - startTime : undefined;
@@ -158,7 +122,6 @@ httpRequest.interceptors.response.use(
     
     // 网络错误
     if (error.code === 'ECONNABORTED') {
-      console.error('🌐 请求超时');
       const msg = `请求超时${duration !== undefined ? `（${duration}ms）` : ''}，请检查网络连接`;
       ElMessage.error(msg);
       return Promise.reject(error);
@@ -166,7 +129,6 @@ httpRequest.interceptors.response.use(
     
     // 网络连接错误
     if (error.code === 'ERR_NETWORK') {
-      console.error('🌐 网络连接错误');
       const isCors = error.message?.toLowerCase().includes('network error');
       const hint = isCors ? '（可能是后端未启动或 CORS/端口不通）' : '';
       ElMessage.error(`网络连接失败${hint}`);
@@ -179,33 +141,26 @@ httpRequest.interceptors.response.use(
       
       switch (status) {
         case 400:
-          console.error('❌ 400 - 请求参数错误');
           ElMessage.error(data?.message || data?.msg || '请求参数错误');
           break;
         case 401:
-          console.error('❌ 401 - 未授权访问');
           ElMessage.error(data?.message || data?.msg || '请先登录');
           // 可以在这里处理登录跳转
           break;
         case 403:
-          console.error('❌ 403 - 禁止访问');
           ElMessage.error(data?.message || data?.msg || '没有权限访问此资源');
           break;
         case 404:
-          console.error('❌ 404 - 资源不存在');
           ElMessage.error(data?.message || data?.msg || '请求的资源不存在');
           break;
         case 500:
-          console.error('❌ 500 - 服务器内部错误');
           ElMessage.error(data?.message || data?.msg || '服务器内部错误，请稍后重试');
           break;
         default:
-          console.error(`❌ ${status} - 未知错误`);
           ElMessage.error(data?.message || data?.msg || `请求失败 (${status})`);
       }
     } else {
       // 其他错误
-      console.error('❌ 未知错误类型');
       const isCors = error.message?.toLowerCase().includes('network error');
       ElMessage.error(isCors ? '请求失败：可能的 CORS 或网络阻断' : '请求失败，请稍后重试');
     }

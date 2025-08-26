@@ -22,15 +22,15 @@ export const usePermissionStore = defineStore("permission", () => {
    */
   async function generateRoutes(): Promise<RouteRecordRaw[]> {
     try {
-      const data = await MenuAPI.getRoutes(); // 获取当前登录人拥有的菜单路由
-      const dynamicRoutes = parseDynamicRoutes(data);
-
-      routes.value = [...constantRoutes, ...dynamicRoutes];
+      // 统一使用前端内置（constantRoutes）为准，避免与动态路由重复
+      // 如需启用后端动态菜单，请在此合并前做“去重合并”逻辑
+      const sortedConst = sortRoutesRecursive([...constantRoutes]);
+      routes.value = sortedConst;
 
       setAllCacheRoutes(routes.value);
       isDynamicRoutesGenerated.value = true;
 
-      return dynamicRoutes;
+      return [];
     } catch (error) {
       console.error("❌ Failed to generate routes:", error);
       isDynamicRoutesGenerated.value = false;
@@ -125,6 +125,26 @@ const parseDynamicRoutes = (rawRoutes: RouteVO[]): RouteRecordRaw[] => {
   });
 
   return parsedRoutes;
+};
+
+/**
+ * 按 meta.sort（或 sort）进行递归排序，缺省排最后
+ */
+const sortRoutesRecursive = (routes: RouteRecordRaw[]): RouteRecordRaw[] => {
+  const getSort = (r: RouteRecordRaw) => {
+    // 优先 meta.sort，其次兼容后端 sort 字段
+    const metaSort = (r.meta as any)?.sort;
+    const ownSort = (r as any).sort;
+    return typeof metaSort === 'number' ? metaSort : (typeof ownSort === 'number' ? ownSort : 9999);
+  };
+
+  const cloned = routes.slice().sort((a, b) => getSort(a) - getSort(b));
+  cloned.forEach((r) => {
+    if (r.children && r.children.length > 0) {
+      r.children = sortRoutesRecursive(r.children);
+    }
+  });
+  return cloned;
 };
 
 /**

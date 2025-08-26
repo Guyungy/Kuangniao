@@ -5,10 +5,8 @@ const MENU_BASE_URL = "/menus";
 const MenuAPI = {
   /** 获取当前用户的路由列表 */
   getRoutes() {
-    // 开发阶段使用模拟数据
-    return Promise.resolve(mockRoutes);
-    // 生产环境使用真实接口
-    // return request<any, RouteVO[]>({ url: `${MENU_BASE_URL}/routes`, method: "get" });
+    // 暂停使用后端/Mock 菜单，统一使用前端内置路由，避免重复
+    return Promise.resolve([] as RouteVO[]);
   },
   /** 获取菜单树形列表 */
   getList(queryParams: MenuQuery) {
