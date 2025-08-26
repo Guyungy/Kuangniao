@@ -484,6 +484,46 @@ mysqldump -h 127.0.0.1 -P 3306 -uroot -proot --databases payboard > backup.sql
 - 首次导入未触发：执行 `docker compose down -v` 再 `up -d`。
 - Windows 挂载失败：在 Docker Desktop → Settings → Resources → File Sharing 中允许项目目录共享。
 
+#### 登录失败/请求超时（10005ms）
+出现“登录失败”“请求超时（10005ms）”多数为后端端口未正常监听或前端代理目标与后端不一致。
+
+可能原因：
+- 后端端口 10000/10001 被占用，启动日志报错 `listen EADDRINUSE: address already in use`，导致后端未真正启动。
+- 手动分别起/多开后端，或未按“pnpm run dev:full”统一启动，导致端口与前端代理不匹配。
+- 切换端口后，未同步更新前端代理目标，前端仍指向旧端口。
+
+一键修复（推荐）：
+1) 释放端口（Windows PowerShell）
+```powershell
+netstat -ano | findstr :10000
+# 记下 PID（最后一列），逐个结束：
+taskkill /PID <PID> /F
+
+netstat -ano | findstr :10001
+taskkill /PID <PID> /F
+```
+2) 统一启动（仅此一条命令）
+```powershell
+pnpm run dev:full
+```
+3) 健康检查
+- 打开 `http://localhost:10000/health`（或你设置的新端口），应返回 `{"status":"OK",...}`
+- 页面再尝试登录
+
+临时更换端口（不想杀进程时）：
+```powershell
+$env:PORT=10001; $env:VITE_APP_API_URL='http://localhost:10001'; pnpm run dev:full
+```
+说明：
+- 后端通过 `PORT` 指定监听端口；
+- 前端 Vite 代理读取 `VITE_APP_API_URL` 作为代理目标，并重写到 `/api/v1`；
+- 建议优先释放 10000 端口以避免频繁切换配置。
+
+自检清单：
+- `http://localhost:<PORT>/health` 是否返回 OK；
+- 浏览器 Network 面板中 `/dev-api/auth/login` 是否被代理到 `http://localhost:<PORT>/api/v1/auth/login`；
+- 若 401，请确认已初始化用户或使用 `backend/create-default-user.sql` 建好默认账号。
+
 ## 💰 财务管理功能
 
 ### 功能概述

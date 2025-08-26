@@ -1,11 +1,11 @@
 import { Router, Request, Response } from 'express';
-import { WorkerSettlement, SettlementStatus, SettlementType } from '../models';
+import { WorkerSettlement, SettlementStatus, SettlementType, CommissionRule, CommissionRuleStatus, CommissionRuleType } from '../models';
 import { Worker, User, Order } from '../models';
 import { authenticateToken } from '../middleware/auth';
 import { body, query, param, validationResult } from 'express-validator';
 import { Op } from 'sequelize';
 
-const router = Router();
+const router: Router = Router();
 
 // 所有路由都需要认证
 router.use(authenticateToken);
@@ -54,7 +54,40 @@ router.post('/preview', [
     const orderAmount = orders.reduce((sum, o) => sum + Number(o.price_final), 0);
     const totalHours = orders.reduce((sum, o) => sum + Number(o.duration), 0);
     const hourlyRate = Number(worker.price_hour);
-    const expectedAmount = totalHours * hourlyRate;
+    // 选择分成规则：custom > level > global，取状态active且优先级最高
+    let commissionRule: CommissionRule | null = null;
+    // custom
+    commissionRule = await CommissionRule.findOne({
+      where: { status: CommissionRuleStatus.ACTIVE, type: CommissionRuleType.CUSTOM, worker_id: worker.id },
+      order: [['priority', 'DESC']]
+    });
+    // level
+    if (!commissionRule && worker.level) {
+      commissionRule = await CommissionRule.findOne({
+        where: { status: CommissionRuleStatus.ACTIVE, type: CommissionRuleType.LEVEL, worker_level: worker.level },
+        order: [['priority', 'DESC']]
+      });
+    }
+    // global
+    if (!commissionRule) {
+      commissionRule = await CommissionRule.findOne({
+        where: { status: CommissionRuleStatus.ACTIVE, type: CommissionRuleType.GLOBAL },
+        order: [['priority', 'DESC']]
+      });
+    }
+    const commissionRate = commissionRule ? Number(commissionRule.commission_rate) : 0;
+    const workerShare = Number((orderAmount * commissionRate).toFixed(2));
+    const platformProfit = Number((orderAmount - workerShare).toFixed(2));
+    const expectedAmount = workerShare; // 期望打手收入按分成计算
+
+    // 操作人与老板名字
+    const operatorName = (req.user as any)?.display_name || (req.user as any)?.username || '';
+    const bossUser = await User.findOne({
+      where: { role: ['ROOT', 'ADMIN'] as any },
+      order: [['role', 'ASC']],
+      attributes: ['username', 'display_name']
+    });
+    const bossName = bossUser?.display_name || bossUser?.username || '';
 
     res.json({
       code: '00000',
@@ -72,6 +105,11 @@ router.post('/preview', [
         totalHours,
         hourlyRate,
         expectedAmount,
+        commissionRate,
+        workerShare,
+        platformProfit,
+        operatorName,
+        bossName,
         orders: orders.map(o => ({ id: o.id, priceFinal: o.price_final, serviceHours: o.duration, createTime: o.created_at }))
       }
     });
@@ -479,6 +517,7 @@ router.put('/:id/dispute', [
 
     const settlementId = parseInt(req.params.id);
     const { reason } = req.body;
+    const confirmedBy = (req.user as any).id;
 
     const settlement = await WorkerSettlement.findByPk(settlementId);
     if (!settlement) {
@@ -499,8 +538,10 @@ router.put('/:id/dispute', [
       return;
     }
 
-    // 标记争议
+    // 标记争议，并记录操作人与时间
     settlement.markDisputed(reason);
+    settlement.confirmed_by = confirmedBy;
+    settlement.confirmed_at = new Date();
     await settlement.save();
 
     res.json({
@@ -580,6 +621,7 @@ router.put('/:id', [
 });
 
 // 删除对账记录
+// 取消对账记录（保留痕迹）
 router.delete('/:id', [
   param('id').isInt({ min: 1 }).withMessage('对账ID必须是正整数')
 ], async (req: Request, res: Response): Promise<void> => {
@@ -607,20 +649,26 @@ router.delete('/:id', [
       return;
     }
 
-    if (settlement.status !== SettlementStatus.PENDING) {
+    // 改为取消：标记争议并添加说明，记录操作人
+    if (settlement.status === SettlementStatus.CONFIRMED) {
       res.status(400).json({
         code: 'B0001',
-        message: '已核账的记录不能删除',
+        message: '已核账的记录不能取消',
         data: null
       });
       return;
     }
 
-    await settlement.destroy();
+    const operatorId = (req.user as any).id;
+    settlement.status = SettlementStatus.DISPUTED;
+    settlement.difference_reason = (settlement.difference_reason ? settlement.difference_reason + '；' : '') + '管理员取消记录';
+    settlement.confirmed_by = operatorId;
+    settlement.confirmed_at = new Date();
+    await settlement.save();
 
     res.json({
       code: '00000',
-      msg: '删除对账记录成功',
+      msg: '已取消对账记录（保留痕迹）',
       data: null
     });
   } catch (error) {

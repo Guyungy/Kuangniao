@@ -155,62 +155,21 @@
               <span v-else class="text-gray-500">未核账</span>
             </template>
           </el-table-column>
-
-          <el-table-column label="操作" width="200" align="center" fixed="right">
+          <el-table-column label="操作人" min-width="120">
             <template #default="scope">
-              <el-button
-                type="primary"
-                icon="view"
-                link
-                size="small"
-                @click="handleViewDetail(scope.row.id)"
-              >
-                查看详情
-              </el-button>
-              
-              <el-button
-                v-if="scope.row.status === 'pending'"
-                type="success"
-                icon="check"
-                link
-                size="small"
-                @click="handleConfirm(scope.row)"
-              >
-                确认核账
-              </el-button>
-              
-              <el-button
-                v-if="scope.row.status === 'pending'"
-                type="warning"
-                icon="warning"
-                link
-                size="small"
-                @click="handleDispute(scope.row)"
-              >
-                标记争议
-              </el-button>
-              
-              <el-button
-                v-if="scope.row.status === 'pending'"
-                type="primary"
-                icon="edit"
-                link
-                size="small"
-                @click="handleOpenDialog(scope.row.id)"
-              >
-                编辑
-              </el-button>
-              
-              <el-button
-                v-if="scope.row.status === 'pending'"
-                type="danger"
-                icon="delete"
-                link
-                size="small"
-                @click="handleDelete(scope.row.id)"
-              >
-                删除
-              </el-button>
+              <span>{{ scope.row.confirmedByUsername || '-' }}</span>
+            </template>
+          </el-table-column>
+
+          <el-table-column label="操作" min-width="260" align="left" fixed="right">
+            <template #default="scope">
+              <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+                <el-button type="primary" icon="view" link size="small" @click="handleViewDetail(scope.row.id)">查看详情</el-button>
+                <el-button v-if="scope.row.status === 'pending'" type="success" icon="check" link size="small" @click="handleConfirm(scope.row)">确认核账</el-button>
+                <el-button v-if="scope.row.status === 'pending'" type="warning" icon="warning" link size="small" @click="handleDispute(scope.row)">标记争议</el-button>
+                <el-button v-if="scope.row.status === 'pending'" type="primary" icon="edit" link size="small" @click="handleOpenDialog(scope.row.id)">编辑</el-button>
+                <el-button v-if="scope.row.status === 'pending'" type="danger" icon="close" link size="small" @click="handleCancel(scope.row.id)">取消</el-button>
+              </div>
             </template>
           </el-table-column>
         </el-table>
@@ -324,9 +283,31 @@
         </template>
         <div v-loading="previewLoading">
           <div v-if="previewData">
-            <div>订单数：{{ previewData.orderCount }}，总金额：¥{{ previewData.orderAmount }}，总小时：{{ previewData.totalHours }}h</div>
-            <div>小时单价：¥{{ previewData.hourlyRate }}/h，应得金额：¥{{ previewData.expectedAmount }}</div>
+            <div>订单数：{{ previewData.orderCount }}，流水：¥{{ previewData.orderAmount }}，总小时：{{ previewData.totalHours }}h</div>
+            <div>小时单价：¥{{ previewData.hourlyRate }}/h</div>
+            <div class="text-gray-500 text-sm">操作人：{{ previewData.operatorName || '-' }}，老板：{{ previewData.bossName || '-' }}</div>
+
+            <el-table :data="incomeRows" border size="small" class="mt-1">
+              <el-table-column label="项目" prop="label" />
+              <el-table-column label="数值">
+                <template #default="scope">{{ scope.row.value }}</template>
+              </el-table-column>
+            </el-table>
+            <div class="text-gray-500 text-sm mt-1">应得金额（用于对账）：¥{{ previewData.expectedAmount }}</div>
             <div class="text-gray-500 text-sm">{{ formData.startDate }} ~ {{ formData.endDate }}</div>
+            <div class="mt-1" v-if="(previewData.orders?.length || 0) > 0">
+              <div class="text-gray-500 text-sm mb-4">共 {{ previewData.orders?.length || 0 }} 条</div>
+              <el-table :data="previewData.orders || []" border stripe size="small">
+                <el-table-column label="订单号" prop="id" width="100" />
+                <el-table-column label="金额" width="120">
+                  <template #default="scope">¥{{ scope.row.priceFinal }}</template>
+                </el-table-column>
+                <el-table-column label="服务小时" prop="serviceHours" width="100" />
+                <el-table-column label="时间" width="180">
+                  <template #default="scope">{{ new Date(scope.row.createTime).toLocaleString('zh-CN') }}</template>
+                </el-table-column>
+              </el-table>
+            </div>
           </div>
           <div v-else class="text-gray-500">请选择打手和日期范围，系统将自动预览统计</div>
         </div>
@@ -438,7 +419,22 @@ const formData = reactive<SettlementForm>({
 
 // 预览数据
 const previewLoading = ref(false);
-const previewData = ref<{ orderCount: number; orderAmount: number; totalHours: number; hourlyRate: number; expectedAmount: number } | null>(null);
+const previewData = ref<{ orderCount: number; orderAmount: number; totalHours: number; hourlyRate: number; expectedAmount: number; commissionRate: number; workerShare: number; platformProfit: number; operatorName?: string; bossName?: string; orders?: Array<{ id: number; priceFinal: number; serviceHours: number; createTime: string }> } | null>(null);
+const incomeRows = computed(() => {
+  if (!previewData.value) return [] as Array<{ label: string; value: string }>;
+  return [
+    { label: '流水', value: `¥${previewData.value.orderAmount}` },
+    { label: '分成比例', value: formatRate(previewData.value.commissionRate) },
+    { label: '打手收入', value: `¥${previewData.value.workerShare}` }
+  ];
+});
+const previewPage = ref(1);
+const previewPageSize = ref(10);
+const previewPagedOrders = computed(() => {
+  const list = previewData.value?.orders || [];
+  const start = (previewPage.value - 1) * previewPageSize.value;
+  return list.slice(start, start + previewPageSize.value);
+});
 
 const rules = reactive({
   workerId: [{ required: true, message: "请选择打手", trigger: "change" }],
@@ -527,6 +523,8 @@ async function handleOpenDialog(id?: number) {
         differenceReason: data.differenceReason,
       });
       formData.id = id;
+      // 加载完成后立即预览
+      triggerPreview();
     } catch (error) {
       console.error("获取对账详情失败:", error);
     }
@@ -542,6 +540,8 @@ async function handleOpenDialog(id?: number) {
       differenceReason: '',
     });
     previewData.value = null;
+    // 进入新增时按默认日期进行预览（需先选择打手后再触发）
+    // triggerPreview 将在选择打手后自动触发
   }
 }
 
@@ -636,8 +636,15 @@ const triggerPreview = useDebounceFn(async () => {
       orderAmount: data.orderAmount,
       totalHours: data.totalHours,
       hourlyRate: data.hourlyRate,
-      expectedAmount: data.expectedAmount
+      expectedAmount: data.expectedAmount,
+      commissionRate: data.commissionRate || 0,
+      workerShare: data.workerShare || 0,
+      platformProfit: data.platformProfit || 0,
+      operatorName: data.operatorName || '',
+      bossName: data.bossName || '',
+      orders: data.orders || []
     };
+    previewPage.value = 1;
     // 若用户未手动填写，默认用应得金额作为实发初值，便于确认
     if (!formData.actualAmount || formData.actualAmount === 0) {
       formData.actualAmount = Number(data.expectedAmount || 0);
@@ -647,11 +654,15 @@ const triggerPreview = useDebounceFn(async () => {
   } finally {
     previewLoading.value = false;
   }
-}, 500);
+}, 200);
 
 watch(() => [formData.workerId, formData.settlementType, formData.startDate, formData.endDate], () => {
   triggerPreview();
 });
+
+function formatRate(rate: number) {
+  return `${Math.round(Number(rate || 0) * 10000) / 100}%`;
+}
 
 // 查看详情
 function handleViewDetail(id: number) {
@@ -713,6 +724,23 @@ function handleDelete(id: number) {
     WorkerSettlementAPI.delete(id)
       .then(() => {
         ElMessage.success("删除成功");
+        handleQuery();
+      })
+      .finally(() => (loading.value = false));
+  });
+}
+
+// 取消对账记录（替代删除）
+function handleCancel(id: number) {
+  ElMessageBox.confirm("确认取消该对账记录? 将保留痕迹。", "提示", {
+    confirmButtonText: "确定",
+    cancelButtonText: "关闭",
+    type: "warning",
+  }).then(() => {
+    loading.value = true;
+    WorkerSettlementAPI.delete(id)
+      .then(() => {
+        ElMessage.success("已取消对账记录");
         handleQuery();
       })
       .finally(() => (loading.value = false));
