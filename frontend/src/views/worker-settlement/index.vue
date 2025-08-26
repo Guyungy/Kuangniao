@@ -244,6 +244,7 @@
             placeholder="请选择打手"
             style="width: 100%"
             :disabled="!!formData.id"
+            filterable
           >
             <el-option
               v-for="worker in workerOptions"
@@ -289,6 +290,14 @@
           />
         </el-form-item>
 
+        <el-form-item label="快捷日期">
+          <el-button-group>
+            <el-button size="small" @click="applyQuickRange('daily')">本日</el-button>
+            <el-button size="small" @click="applyQuickRange('weekly')">本周</el-button>
+            <el-button size="small" @click="applyQuickRange('monthly')">本月</el-button>
+          </el-button-group>
+        </el-form-item>
+
         <el-form-item label="实发金额" prop="actualAmount">
           <el-input-number
             v-model="formData.actualAmount"
@@ -308,6 +317,20 @@
           />
         </el-form-item>
       </el-form>
+
+      <el-card shadow="never" class="mb-4" v-if="dialog.visible">
+        <template #header>
+          <div>对账预览</div>
+        </template>
+        <div v-loading="previewLoading">
+          <div v-if="previewData">
+            <div>订单数：{{ previewData.orderCount }}，总金额：¥{{ previewData.orderAmount }}，总小时：{{ previewData.totalHours }}h</div>
+            <div>小时单价：¥{{ previewData.hourlyRate }}/h，应得金额：¥{{ previewData.expectedAmount }}</div>
+            <div class="text-gray-500 text-sm">{{ formData.startDate }} ~ {{ formData.endDate }}</div>
+          </div>
+          <div v-else class="text-gray-500">请选择打手和日期范围，系统将自动预览统计</div>
+        </div>
+      </el-card>
 
       <template #footer>
         <div class="dialog-footer">
@@ -413,6 +436,10 @@ const formData = reactive<SettlementForm>({
   differenceReason: '',
 });
 
+// 预览数据
+const previewLoading = ref(false);
+const previewData = ref<{ orderCount: number; orderAmount: number; totalHours: number; hourlyRate: number; expectedAmount: number } | null>(null);
+
 const rules = reactive({
   workerId: [{ required: true, message: "请选择打手", trigger: "change" }],
   settlementType: [{ required: true, message: "请选择结算类型", trigger: "change" }],
@@ -509,11 +536,12 @@ async function handleOpenDialog(id?: number) {
     Object.assign(formData, {
       workerId: 0,
       settlementType: 'daily',
-      startDate: '',
-      endDate: '',
+      startDate: getToday(),
+      endDate: getToday(),
       actualAmount: 0,
       differenceReason: '',
     });
+    previewData.value = null;
   }
 }
 
@@ -552,6 +580,78 @@ const handleSubmit = useDebounceFn(() => {
     }
   });
 }, 1000);
+
+// 生成今天日期字符串
+function getToday() {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+// 根据类型应用快捷日期
+function applyQuickRange(type: 'daily' | 'weekly' | 'monthly') {
+  const now = new Date();
+  let start = new Date(now);
+  let end = new Date(now);
+  if (type === 'daily') {
+    // 本日
+  } else if (type === 'weekly') {
+    const day = now.getDay() || 7; // 周一为1
+    start.setDate(now.getDate() - (day - 1));
+    end.setDate(start.getDate() + 6);
+  } else if (type === 'monthly') {
+    start = new Date(now.getFullYear(), now.getMonth(), 1);
+    end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  }
+  formData.settlementType = type;
+  formData.startDate = formatDateStr(start);
+  formData.endDate = formatDateStr(end);
+}
+
+function formatDateStr(d: Date) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+// 触发预览（防抖）
+const triggerPreview = useDebounceFn(async () => {
+  if (!formData.workerId || !formData.startDate || !formData.endDate) {
+    previewData.value = null;
+    return;
+  }
+  previewLoading.value = true;
+  try {
+    const data = await WorkerSettlementAPI.preview({
+      workerId: formData.workerId,
+      settlementType: formData.settlementType,
+      startDate: formData.startDate,
+      endDate: formData.endDate
+    });
+    previewData.value = {
+      orderCount: data.orderCount,
+      orderAmount: data.orderAmount,
+      totalHours: data.totalHours,
+      hourlyRate: data.hourlyRate,
+      expectedAmount: data.expectedAmount
+    };
+    // 若用户未手动填写，默认用应得金额作为实发初值，便于确认
+    if (!formData.actualAmount || formData.actualAmount === 0) {
+      formData.actualAmount = Number(data.expectedAmount || 0);
+    }
+  } catch (e) {
+    previewData.value = null;
+  } finally {
+    previewLoading.value = false;
+  }
+}, 500);
+
+watch(() => [formData.workerId, formData.settlementType, formData.startDate, formData.endDate], () => {
+  triggerPreview();
+});
 
 // 查看详情
 function handleViewDetail(id: number) {

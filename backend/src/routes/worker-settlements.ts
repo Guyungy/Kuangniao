@@ -10,6 +10,77 @@ const router = Router();
 // 所有路由都需要认证
 router.use(authenticateToken);
 
+// 对账预览（不落库）
+router.post('/preview', [
+  body('workerId').isInt({ min: 1 }).withMessage('打手ID必须是正整数'),
+  body('settlementType').isIn(Object.values(SettlementType)).withMessage('结算类型无效'),
+  body('startDate').isISO8601().withMessage('开始日期格式无效'),
+  body('endDate').isISO8601().withMessage('结束日期格式无效')
+], async (req: Request, res: Response): Promise<void> => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      res.status(400).json({
+        code: 'B0001',
+        message: '参数验证失败',
+        data: null,
+        errors: errors.array()
+      });
+      return;
+    }
+
+    const { workerId, settlementType, startDate, endDate } = req.body as {
+      workerId: number; settlementType: SettlementType; startDate: string; endDate: string;
+    };
+
+    // 检查打手是否存在
+    const worker = await Worker.findByPk(workerId);
+    if (!worker) {
+      res.status(400).json({ code: 'B0001', message: '打手不存在', data: null });
+      return;
+    }
+
+    // 查询该时间段订单数据
+    const orders = await Order.findAll({
+      where: {
+        worker_id: workerId,
+        created_at: { [Op.between]: [new Date(startDate), new Date(endDate)] }
+      },
+      attributes: ['id', 'price_final', 'duration', 'created_at'],
+      order: [['created_at', 'ASC']]
+    });
+
+    const orderCount = orders.length;
+    const orderAmount = orders.reduce((sum, o) => sum + Number(o.price_final), 0);
+    const totalHours = orders.reduce((sum, o) => sum + Number(o.duration), 0);
+    const hourlyRate = Number(worker.price_hour);
+    const expectedAmount = totalHours * hourlyRate;
+
+    res.json({
+      code: '00000',
+      msg: '预览成功',
+      data: {
+        workerId,
+        workerName: worker.name,
+        workerRealName: worker.real_name,
+        workerPhone: worker.phone,
+        settlementType,
+        startDate,
+        endDate,
+        orderCount,
+        orderAmount,
+        totalHours,
+        hourlyRate,
+        expectedAmount,
+        orders: orders.map(o => ({ id: o.id, priceFinal: o.price_final, serviceHours: o.duration, createTime: o.created_at }))
+      }
+    });
+  } catch (error) {
+    console.error('对账预览错误:', error);
+    res.status(500).json({ code: '50000', msg: '服务器内部错误', data: null });
+  }
+});
+
 // 获取对账分页列表
 router.get('/page', [
   query('pageNum').optional().isInt({ min: 1 }).withMessage('页码必须是正整数'),

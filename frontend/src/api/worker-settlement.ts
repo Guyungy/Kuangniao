@@ -94,6 +94,17 @@ const WorkerSettlementAPI = {
       method: "delete",
     });
   },
+
+  /**
+   * 预览对账统计（不落库）
+   */
+  preview(data: Pick<SettlementForm, 'workerId' | 'settlementType' | 'startDate' | 'endDate'>) {
+    return request<any, any>({
+      url: `${SETTLEMENT_BASE_URL}/preview`,
+      method: 'post',
+      data
+    });
+  }
 };
 
 export default WorkerSettlementAPI;
