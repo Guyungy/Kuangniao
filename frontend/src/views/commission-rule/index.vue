@@ -312,12 +312,35 @@ const formRules: FormRules = {
 const getRuleList = async () => {
   loading.value = true
   try {
+    console.log('🔍 开始获取分成规则列表');
+    console.log('📋 查询参数:', queryParams);
+    
     const result = await CommissionRuleAPI.getPage(queryParams)
+    console.log('✅ 获取分成规则列表成功:', result);
+    
     ruleList.value = result.list
     total.value = result.total
   } catch (error) {
-    console.error('获取分成规则列表失败:', error)
-    ElMessage.error('获取分成规则列表失败')
+    console.error('❌ 获取分成规则列表失败:', {
+      error: error.message,
+      errorType: error.constructor.name,
+      stack: error.stack,
+      queryParams,
+      timestamp: new Date().toISOString()
+    });
+    
+    // 根据错误类型显示不同的错误信息
+    if (error.message.includes('Network Error')) {
+      ElMessage.error('网络连接失败，请检查网络设置');
+    } else if (error.message.includes('timeout')) {
+      ElMessage.error('请求超时，请稍后重试');
+    } else if (error.message.includes('404')) {
+      ElMessage.error('API端点不存在，请检查后端服务');
+    } else if (error.message.includes('500')) {
+      ElMessage.error('服务器内部错误，请稍后重试');
+    } else {
+      ElMessage.error(`获取分成规则列表失败: ${error.message}`);
+    }
   } finally {
     loading.value = false
   }

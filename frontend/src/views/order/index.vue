@@ -255,19 +255,62 @@
             </el-form-item>
           </el-col>
           <el-col :span="12">
-            <el-form-item label="订单金额">
+            <el-form-item label="小时单价">
+              <el-input :value="`¥${hourlyRate}/小时`" readonly />
+            </el-form-item>
+          </el-col>
+        </el-row>
+        
+        <el-row :gutter="20">
+          <el-col :span="12">
+            <el-form-item label="原价金额">
               <el-input :value="`¥${calculatedAmount}`" readonly />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="实付金额" prop="amount">
+              <el-input-number
+                v-model="formData.amount"
+                :min="0.01"
+                :step="0.01"
+                :precision="2"
+                style="width: 100%"
+                placeholder="请输入实付金额"
+                @change="handleAmountChange"
+              />
+              <span class="ml-2 text-gray-500">元</span>
             </el-form-item>
           </el-col>
         </el-row>
         
         <!-- 价格显示区域 -->
         <el-card shadow="never" class="price-card mb-4">
+          <div class="price-row">
+            <span>原价金额：</span>
+            <span class="text-gray-600">¥{{ calculatedAmount }}</span>
+          </div>
+          <div class="price-row" v-if="isAmountModified">
+            <span v-if="isPriceDecreased">优惠金额：</span>
+            <span v-else-if="isPriceIncreased">加价金额：</span>
+            <span v-else>调整金额：</span>
+            <span v-if="isPriceDecreased" class="text-green-600">-¥{{ discountAmount }}</span>
+            <span v-else-if="isPriceIncreased" class="text-orange-600">+¥{{ discountAmount }}</span>
+            <span v-else class="text-blue-600">¥{{ discountAmount }}</span>
+          </div>
           <div class="price-row total">
-            <span>订单金额：</span>
-            <span class="text-red-600 font-bold text-lg">¥{{ calculatedAmount }}</span>
+            <span>实付金额：</span>
+            <span class="text-red-600 font-bold text-lg">¥{{ formData.amount }}</span>
           </div>
         </el-card>
+        
+        <el-form-item label="优惠原因" prop="discountReason" v-if="isAmountModified">
+          <el-input
+            v-model="formData.discountReason"
+            type="textarea"
+            placeholder="请填写优惠原因（如：老客户优惠、特殊情况调整等）"
+            :rows="2"
+          />
+        </el-form-item>
         
         <el-form-item label="支付方式" prop="payMethod">
           <el-radio-group v-model="formData.payMethod">
@@ -484,12 +527,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, computed } from 'vue'
+import { ref, reactive, onMounted, computed, watch, nextTick } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
-import OrderAPI, { type OrderVO, type OrderForm, type OrderStats } from '@/api/order'
+import OrderAPI, { type OrderVO, type OrderForm, type OrderQuery, type OrderStats } from '@/api/order'
 import MemberAPI, { type MemberVO } from '@/api/member'
 import WorkerAPI, { type WorkerVO } from '@/api/worker'
+import { WORKER_STATUS } from '@/constants/worker'
 import { getPaymentMethodText } from '@/utils/payment'
 
 defineOptions({
@@ -562,7 +606,8 @@ const formData = reactive<OrderForm>({
   serviceHours: 1,
   amount: 0,
   payMethod: 'scan', // 默认使用扫码支付
-  remark: ''
+  remark: '',
+  discountReason: '' // 优惠原因
 })
 
 // 统计数据
@@ -611,9 +656,35 @@ const calculatedAmount = computed(() => {
   return (formData.serviceHours * hourlyRate.value).toFixed(2)
 })
 
+const isAmountModified = computed(() => {
+  return Math.abs(formData.amount - parseFloat(calculatedAmount.value)) > 0.01
+})
+
+const discountAmount = computed(() => {
+  if (isAmountModified.value) {
+    const diff = parseFloat(calculatedAmount.value) - formData.amount
+    return Math.abs(diff).toFixed(2)
+  }
+  return '0.00'
+})
+
+const isPriceIncreased = computed(() => {
+  if (isAmountModified.value) {
+    return formData.amount > parseFloat(calculatedAmount.value)
+  }
+  return false
+})
+
+const isPriceDecreased = computed(() => {
+  if (isAmountModified.value) {
+    return formData.amount < parseFloat(calculatedAmount.value)
+  }
+  return false
+})
+
 const canSubmit = computed(() => {
   if (formData.payMethod === 'balance') {
-    return memberBalance.value >= parseFloat(calculatedAmount.value)
+    return memberBalance.value >= formData.amount
   }
   return true
 })
@@ -623,7 +694,20 @@ const rules: FormRules = {
   memberId: [{ required: true, message: '请选择会员', trigger: 'change' }],
   workerId: [{ required: true, message: '请选择打手', trigger: 'change' }],
   serviceHours: [{ required: true, message: '请输入服务时长', trigger: 'blur' }],
-  payMethod: [{ required: true, message: '请选择支付方式', trigger: 'change' }]
+  amount: [{ required: true, message: '请输入实付金额', trigger: 'blur' }],
+  payMethod: [{ required: true, message: '请选择支付方式', trigger: 'change' }],
+  discountReason: [
+    {
+      validator: (rule: any, value: any, callback: any) => {
+        if (isAmountModified.value && !value) {
+          callback(new Error('金额已修改，请填写优惠原因'));
+        } else {
+          callback();
+        }
+      },
+      trigger: 'blur'
+    }
+  ]
 }
 
 
@@ -845,14 +929,14 @@ const handleWorkerQuery = async () => {
       keyword: workerQueryParams.keyword,
       page: workerQueryParams.page,
       limit: workerQueryParams.limit,
-      status: 'available'
+      status: '可用'
     });
     
     const result = await WorkerAPI.getPage({
       keyword: workerQueryParams.keyword,
       page: workerQueryParams.page,
       limit: workerQueryParams.limit,
-      status: 'available' // 只查询状态为可用的打手
+      status: WORKER_STATUS.AVAILABLE // 使用常量，确保与后端一致
     })
     
     console.log('=== 前端打手查询成功 ===');
@@ -898,7 +982,14 @@ const handleWorkerSelect = (row: WorkerVO) => {
   console.log('selectedWorkerText:', selectedWorkerText.value);
   
   showWorkerDialog.value = false
+  
+  // 计算金额（会自动同步实付金额）
   calculateAmount()
+  
+  // 确保表单更新显示
+  nextTick(() => {
+    console.log('✅ 表单更新完成，实付金额:', formData.amount);
+  })
 }
 
 const handleCloseWorkerDialog = () => {
@@ -921,14 +1012,39 @@ const calculateAmount = async () => {
     try {
       console.log('🔄 调用API计算金额...');
       const result = await OrderAPI.calculateAmount(formData.workerId, formData.serviceHours)
-      formData.amount = result.amount
+      
+      // 在新增模式下，自动同步实付金额为计算出的金额
+      if (!formData.id) {
+        const oldAmount = formData.amount;
+        formData.amount = result.amount;
+        console.log('✅ 新增模式：实付金额从', oldAmount, '更新为:', result.amount);
+        
+        // 强制触发响应式更新
+        nextTick(() => {
+          console.log('✅ 响应式更新完成，当前实付金额:', formData.amount);
+        });
+      }
+      
       console.log('✅ API计算金额成功:', result.amount);
     } catch (error) {
       console.error('❌ API计算金额失败:', error);
       console.log('🔄 使用本地计算...');
       // 如果API调用失败，使用本地计算
-      formData.amount = parseFloat(calculatedAmount.value)
-      console.log('✅ 本地计算金额结果:', formData.amount);
+      const localAmount = parseFloat(calculatedAmount.value)
+      
+      // 在新增模式下，自动同步实付金额
+      if (!formData.id) {
+        const oldAmount = formData.amount;
+        formData.amount = localAmount;
+        console.log('✅ 新增模式：本地计算实付金额从', oldAmount, '更新为:', localAmount);
+        
+        // 强制触发响应式更新
+        nextTick(() => {
+          console.log('✅ 响应式更新完成，当前实付金额:', formData.amount);
+        });
+      }
+      
+      console.log('✅ 本地计算金额结果:', localAmount);
     }
   } else {
     console.log('⚠️ 计算金额条件不满足');
@@ -939,6 +1055,24 @@ const calculateAmount = async () => {
   console.log('=== 金额计算完成 ===');
   console.log('最终金额:', formData.amount);
   console.log('计算属性金额:', calculatedAmount.value);
+}
+
+// 处理金额变化
+const handleAmountChange = () => {
+  console.log('=== 金额手动修改 ===');
+  console.log('原价金额:', calculatedAmount.value);
+  console.log('实付金额:', formData.amount);
+  
+  if (isAmountModified.value) {
+    console.log('✅ 金额已修改，优惠金额:', discountAmount.value);
+    // 如果金额被修改，清空优惠原因（让用户重新填写）
+    if (!formData.discountReason) {
+      formData.discountReason = '';
+    }
+  } else {
+    console.log('✅ 金额未修改，使用原价');
+    formData.discountReason = '';
+  }
 }
 
 // 打开弹窗
@@ -966,7 +1100,8 @@ const handleOpenDialog = async (id?: string) => {
         serviceHours: data.serviceHours,
         amount: data.amount,
         payMethod: data.payMethod,
-        remark: data.remark
+        remark: data.remark,
+        discountReason: data.discountReason || ''
       })
       
       console.log('✅ 表单数据更新完成:', formData);
@@ -993,9 +1128,10 @@ const handleOpenDialog = async (id?: string) => {
       memberId: '',
       workerId: '',
       serviceHours: 1,
-      amount: 0,
+      amount: 0, // 初始为0，选择打手后会自动计算
       payMethod: 'balance',
-      remark: ''
+      remark: '',
+      discountReason: ''
     })
     memberBalance.value = 0
     hourlyRate.value = 0
@@ -1010,12 +1146,28 @@ const handleOpenDialog = async (id?: string) => {
 // 关闭弹窗
 const handleCloseDialog = () => {
   dialog.visible = false
-  orderFormRef.value?.resetFields()
+  
+  // 不要使用 resetFields()，它会重置为初始值
+  // 手动清理表单数据
+  Object.assign(formData, {
+    id: undefined,
+    memberId: '',
+    workerId: '',
+    serviceHours: 1,
+    amount: 0, // 重置为0，下次打开时会自动计算
+    payMethod: 'scan',
+    remark: '',
+    discountReason: ''
+  })
+  
   // 清理选择相关数据
   selectedMemberText.value = ''
   selectedWorkerText.value = ''
   memberBalance.value = 0
   hourlyRate.value = 0
+  
+  // 清理表单验证状态
+  orderFormRef.value?.clearValidate()
 }
 
 // 提交表单
@@ -1033,9 +1185,23 @@ const handleSubmit = async () => {
   
   console.log('✅ 表单验证通过');
   
-  // 确保使用计算出的金额
-  formData.amount = parseFloat(calculatedAmount.value)
-  console.log('提交订单，金额:', formData.amount);
+  // 验证金额
+  if (formData.amount <= 0) {
+    console.log('❌ 实付金额必须大于0');
+    ElMessage.error('实付金额必须大于0')
+    return
+  }
+  
+  // 如果金额被修改，验证优惠原因
+  if (isAmountModified.value && !formData.discountReason) {
+    console.log('❌ 金额已修改，必须填写优惠原因');
+    ElMessage.error('金额已修改，必须填写优惠原因')
+    return
+  }
+  
+  console.log('提交订单，实付金额:', formData.amount);
+  console.log('原价金额:', calculatedAmount.value);
+  console.log('优惠金额:', discountAmount.value);
   console.log('支付方式:', formData.payMethod);
   console.log('会员余额:', memberBalance.value);
   
@@ -1193,6 +1359,28 @@ onMounted(async () => {
   } catch (error) {
     console.error('💥 页面初始化失败:', error);
     debugStatus.value = `页面初始化失败: ${(error as Error).message}`
+  }
+})
+
+// 监听服务时长变化，自动同步实付金额
+watch(() => formData.serviceHours, (newHours) => {
+  if (formData.workerId && newHours > 0 && !formData.id) {
+    console.log('🔄 服务时长变化，自动同步实付金额');
+    // 延迟计算，避免频繁调用
+    setTimeout(() => {
+      calculateAmount()
+    }, 300)
+  }
+})
+
+// 监听打手选择，自动同步实付金额
+watch(() => formData.workerId, (newWorkerId) => {
+  if (newWorkerId && formData.serviceHours > 0 && !formData.id) {
+    console.log('🔄 打手选择变化，自动同步实付金额');
+    // 延迟计算，避免频繁调用
+    setTimeout(() => {
+      calculateAmount()
+    }, 300)
   }
 })
 </script>

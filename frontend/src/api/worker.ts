@@ -177,7 +177,7 @@ const WorkerAPI = {
       bank_name: data.bankName, // 开户行名称
       account_name: data.accountName, // 开户姓名
       price_hour: data.hourlyRate, // 小时费率
-      type: '跑刀', // 默认类型
+      type: '跑刀', // 默认类型（使用后端枚举值）
       status: data.status || '可用', // 状态转换
       level: data.level || 'A', // 级别
       skills: data.skills || [] // 技能标签

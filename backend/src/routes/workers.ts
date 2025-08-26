@@ -17,8 +17,24 @@ router.get('/', [
   query('keyword').optional().isString().withMessage('搜索关键词必须是字符串'),
   query('type').optional().isIn(Object.values(WorkerType)).withMessage('类型值无效'),
   query('status').optional().custom((value) => {
-    if (value && !Object.values(WorkerStatus).includes(value)) {
-      throw new Error('状态值无效');
+    if (value) {
+      // 支持英文和中文状态值的映射
+      const statusMapping: Record<string, string> = {
+        'available': '可用',
+        'busy': '忙碌', 
+        'rest': '休息',
+        'disabled': '禁用'
+      };
+      
+      // 如果传入的是英文，转换为中文
+      const mappedValue = statusMapping[value] || value;
+      
+      if (!Object.values(WorkerStatus).includes(mappedValue)) {
+        throw new Error('状态值无效');
+      }
+      
+      // 将转换后的值设置回req.query
+      return mappedValue;
     }
     return true;
   }).withMessage('状态值无效')
@@ -73,15 +89,30 @@ router.get('/', [
       }
     });
 
-    // 对敏感信息进行脱敏处理
-    const maskedWorkers = workers.map(worker => {
+    // 对敏感信息进行脱敏处理，并添加业绩统计数据
+    const maskedWorkers = await Promise.all(workers.map(async (worker) => {
       const workerData = worker.toJSON();
+      
+      // 计算业绩统计数据
+      const orderStats = await Order.findOne({
+        where: { worker_id: worker.id },
+        attributes: [
+          [sequelize.fn('COUNT', sequelize.col('id')), 'total_orders'],
+          [sequelize.fn('SUM', sequelize.col('price_final')), 'total_income']
+        ],
+        raw: true
+      });
+      
+      console.log(`打手 ${worker.id} 的业绩统计:`, orderStats);
+      
       return {
         ...workerData,
         id_number: worker.getMaskedIdNumber(),
-        bank_account: worker.getMaskedBankAccount()
+        bank_account: worker.getMaskedBankAccount(),
+        total_orders: parseInt((orderStats as any)?.total_orders || '0'),
+        total_income: parseFloat((orderStats as any)?.total_income || '0')
       };
-    });
+    }));
 
     res.json({
       code: '00000',

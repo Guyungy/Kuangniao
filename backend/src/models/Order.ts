@@ -102,6 +102,13 @@ export class Order extends Model {
   remark?: string;
 
   @Column({
+    type: DataType.STRING(255),
+    allowNull: true,
+    comment: '优惠原因（当价格调整时必填）'
+  })
+  discount_reason?: string;
+
+  @Column({
     type: DataType.DATE,
     allowNull: true,
     comment: '上钟时间（开始服务时间）'
@@ -194,13 +201,19 @@ export class Order extends Model {
     const balanceAmount = Number(this.pay_balance || 0);
     const scanAmount = Number(this.pay_scan || 0);
 
+    // 检查总金额是否匹配
+    const totalPayment = balanceAmount + scanAmount;
+    if (Math.abs(totalPayment - finalPrice) > 0.01) {
+      return false;
+    }
+
     switch (this.pay_method) {
       case PayMethod.BALANCE:
-        return balanceAmount === finalPrice && scanAmount === 0;
+        return balanceAmount > 0 && scanAmount === 0;
       case PayMethod.SCAN:
-        return scanAmount === finalPrice && balanceAmount === 0;
+        return scanAmount > 0 && balanceAmount === 0;
       case PayMethod.MIXED:
-        return Math.abs((balanceAmount + scanAmount) - finalPrice) < 0.01; // 允许0.01的浮点误差
+        return balanceAmount > 0 && scanAmount > 0;
       default:
         return false;
     }

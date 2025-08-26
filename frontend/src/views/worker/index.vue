@@ -125,10 +125,14 @@
           <template #default="scope">
             <div class="text-center">
               <div class="text-blue-600 font-bold text-lg mb-1">
-                {{ scope.row.totalOrders }}单
+                {{ scope.row.totalOrders || 0 }}单
               </div>
               <div class="text-orange-600 font-medium">
-                ¥{{ scope.row.totalIncome }}
+                ¥{{ scope.row.totalIncome || 0 }}
+              </div>
+              <!-- 调试信息 -->
+              <div class="text-xs text-gray-400" v-if="!scope.row.totalOrders && !scope.row.totalIncome">
+                暂无数据
               </div>
             </div>
           </template>
@@ -587,7 +591,8 @@ const formData = reactive<WorkerForm>({
   realName: '',
   idCard: '',
   hourlyRate: 100,
-  status: '待审核',
+  status: '可用', // 修复：改为后端期望的状态值
+  level: 'A', // 添加：级别字段
   avatar: '',
   bankName: '',
   bankCard: '',
@@ -721,6 +726,18 @@ const handleQuery = async () => {
   try {
     const result = await WorkerAPI.getPage(queryParams)
     console.log('打手查询结果:', result)
+    console.log('打手列表数据:', result.list)
+    
+    // 检查业绩统计数据
+    if (result.list && result.list.length > 0) {
+      console.log('第一个打手的业绩统计:', {
+        id: result.list[0].id,
+        nickname: result.list[0].nickname,
+        totalOrders: result.list[0].totalOrders,
+        totalIncome: result.list[0].totalIncome
+      })
+    }
+    
     workerList.value = result.list
     total.value = result.total
   } catch (error) {

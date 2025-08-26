@@ -16,6 +16,7 @@ import reportRoutes from './routes/reports';
 import authRoutes from './routes/auth';
 import userRoutes from './routes/users';
 import logRoutes from './routes/logs';
+import commissionRuleRoutes from './routes/commission-rules';
 
 // 加载环境变量
 dotenv.config();
@@ -49,10 +50,40 @@ app.use('/api/v1/orders', orderRoutes);
 app.use('/api/v1/workers', workerRoutes);
 app.use('/api/v1/reports', reportRoutes);
 app.use('/api/v1/logs', logRoutes);
+app.use('/api/v1/commission-rules', commissionRuleRoutes);
 
 // 404处理
 app.use('*', (req, res) => {
-  res.status(404).json({ message: 'API endpoint not found' });
+  console.log('❌ 404 - API端点未找到:', {
+    method: req.method,
+    url: req.url,
+    originalUrl: req.originalUrl,
+    path: req.path,
+    headers: req.headers,
+    timestamp: new Date().toISOString()
+  });
+  
+  res.status(404).json({ 
+    message: 'API endpoint not found',
+    details: {
+      method: req.method,
+      url: req.url,
+      path: req.path,
+      timestamp: new Date().toISOString(),
+      availableEndpoints: [
+        '/health',
+        '/api/v1/auth',
+        '/api/v1/users',
+        '/api/v1/members',
+        '/api/v1/recharges',
+        '/api/v1/orders',
+        '/api/v1/workers',
+        '/api/v1/reports',
+        '/api/v1/logs',
+        '/api/v1/commission-rules'
+      ]
+    }
+  });
 });
 
 // 错误处理中间件
@@ -62,24 +93,71 @@ app.use(errorHandler);
 async function startServer() {
   try {
     // 测试数据库连接
-    console.log('🔌 Testing database connection...');
+    console.log('🔌 开始测试数据库连接...');
+    console.log('📊 数据库配置:', {
+      host: '192.168.50.17',
+      port: 3306,
+      database: 'payboard',
+      username: 'root',
+      dialect: 'mysql'
+    });
+    
     await sequelize.authenticate();
-    console.log('✅ Database connection established successfully.');
+    console.log('✅ 数据库连接成功');
     
     // 同步数据库模型
-    console.log('🔄 Synchronizing database models...');
+    console.log('🔄 开始同步数据库模型...');
     await sequelize.sync({ force: false });
-    console.log('✅ Database models synchronized.');
+    console.log('✅ 数据库模型同步成功');
     
     // 启动服务器
     app.listen(PORT, () => {
-      console.log(`🚀 Server is running on port ${PORT}`);
-      console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
-      console.log(`🌐 API Base URL: http://localhost:${PORT}/api/v1`);
+      console.log('🚀 服务器启动成功');
+      console.log(`📊 环境: ${process.env.NODE_ENV || 'development'}`);
+      console.log(`🌐 服务器地址: http://localhost:${PORT}`);
+      console.log(`🔗 API基础地址: http://localhost:${PORT}/api/v1`);
+      console.log('📋 可用端点:');
+      console.log('   - /health (健康检查)');
+      console.log('   - /api/v1/auth (用户认证)');
+      console.log('   - /api/v1/users (用户管理)');
+      console.log('   - /api/v1/members (会员管理)');
+      console.log('   - /api/v1/recharges (充值管理)');
+      console.log('   - /api/v1/orders (订单管理)');
+      console.log('   - /api/v1/workers (打手管理)');
+      console.log('   - /api/v1/reports (报表管理)');
+      console.log('   - /api/v1/logs (日志管理)');
+      console.log('   - /api/v1/commission-rules (分成规则)');
     });
   } catch (error) {
-    console.error('❌ Unable to start server:', error);
-    console.error('Please check your database configuration and make sure MySQL is running.');
+    console.error('❌ 服务器启动失败:', {
+      error: (error as Error).message,
+      stack: (error as Error).stack,
+      errorType: (error as Error).constructor.name,
+      timestamp: new Date().toISOString()
+    });
+    
+    if ((error as Error).message.includes('ECONNREFUSED')) {
+      console.error('🔌 数据库连接被拒绝，请检查:');
+      console.error('   1. MySQL服务是否正在运行');
+      console.error('   2. 数据库地址 192.168.50.17:3306 是否正确');
+      console.error('   3. 防火墙是否阻止了连接');
+    } else if ((error as Error).message.includes('ER_ACCESS_DENIED_ERROR')) {
+      console.error('🔐 数据库访问被拒绝，请检查:');
+      console.error('   1. 用户名 root 是否正确');
+      console.error('   2. 密码 123456 是否正确');
+      console.error('   3. 用户是否有访问 payboard 数据库的权限');
+    } else if ((error as Error).message.includes('ER_BAD_DB_ERROR')) {
+      console.error('🗄️ 数据库不存在，请检查:');
+      console.error('   1. payboard 数据库是否已创建');
+      console.error('   2. 是否需要先导入 payboard.sql');
+    }
+    
+    console.error('💡 建议的解决步骤:');
+    console.error('   1. 检查MySQL服务状态');
+    console.error('   2. 验证数据库连接信息');
+    console.error('   3. 确认数据库和表是否存在');
+    console.error('   4. 检查网络连接');
+    
     process.exit(1);
   }
 }

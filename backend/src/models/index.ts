@@ -4,7 +4,7 @@ import { Recharge } from './Recharge';
 import { Worker } from './Worker';
 import { Order } from './Order';
 import { User } from './User';
-import CommissionRule from './CommissionRule';
+import { CommissionRule } from './CommissionRule';
 
 // 导出所有模型
 export {
@@ -22,6 +22,7 @@ export { RechargeMethod } from './Recharge';
 export { WorkerType, WorkerStatus } from './Worker';
 export { PayMethod, OrderStatus } from './Order';
 export { UserRole, UserStatus } from './User';
+export { CommissionRuleType, CommissionRuleStatus } from './CommissionRule';
 
 // 初始化模型关联关系
 export const initializeModels = (sequelize: Sequelize): void => {

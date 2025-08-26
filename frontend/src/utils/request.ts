@@ -118,96 +118,73 @@ httpRequest.interceptors.response.use(
     ElMessage.error(errorMessage);
     return Promise.reject(new Error(errorMessage));
   },
-  async (error) => {
-    console.error("Response interceptor error:", error);
-
-    const { config, response } = error;
-
-    // 网络错误或服务器无响应
-    if (!response) {
-      let errorMessage = "网络连接失败，请检查网络设置";
-      
-      if (error.code === 'ECONNABORTED') {
-        errorMessage = "请求超时，请稍后重试";
-      } else if (error.code === 'ERR_NETWORK') {
-        errorMessage = "网络连接失败，请检查网络设置";
-      } else if (error.message) {
-        if (error.message.includes('Network Error')) {
-          errorMessage = "网络连接失败，请检查网络设置";
-        } else if (error.message.includes('timeout')) {
-          errorMessage = "请求超时，请稍后重试";
-        } else {
-          errorMessage = error.message;
-        }
-      }
-      
-      ElMessage.error(errorMessage);
+  (error) => {
+    console.error('❌ === 响应错误拦截器 ===');
+    console.error('错误对象:', error);
+    console.error('错误类型:', error.constructor.name);
+    console.error('错误消息:', error.message);
+    console.error('错误状态码:', error.response?.status);
+    console.error('错误状态文本:', error.response?.statusText);
+    console.error('错误响应数据:', error.response?.data);
+    console.error('错误请求配置:', error.config);
+    console.error('错误请求URL:', error.config?.url);
+    console.error('错误请求方法:', error.config?.method);
+    console.error('错误请求头:', error.config?.headers);
+    console.error('错误请求参数:', error.config?.params);
+    console.error('错误请求数据:', error.config?.data);
+    console.error('错误堆栈:', error.stack);
+    
+    // 网络错误
+    if (error.code === 'ECONNABORTED') {
+      console.error('🌐 请求超时');
+      ElMessage.error('请求超时，请检查网络连接');
       return Promise.reject(error);
     }
-
-    // 检查响应数据是否为标准API格式
-    const responseData = response.data;
-    if (!responseData || typeof responseData !== 'object') {
-      // 非标准响应格式，直接显示HTTP状态错误
-      const statusText = response.statusText || '请求失败';
-      let errorMessage = `${response.status}: ${statusText}`;
+    
+    // 网络连接错误
+    if (error.code === 'ERR_NETWORK') {
+      console.error('🌐 网络连接错误');
+      ElMessage.error('网络连接失败，请检查网络设置');
+      return Promise.reject(error);
+    }
+    
+    // HTTP状态码错误
+    if (error.response) {
+      const { status, data } = error.response;
       
-      // 根据状态码提供更友好的错误信息
-      switch (response.status) {
-        case 500:
-          errorMessage = "服务器内部错误，请稍后重试";
-          break;
-        case 502:
-        case 503:
-        case 504:
-          errorMessage = "服务器暂时不可用，请稍后重试";
-          break;
-        case 404:
-          errorMessage = "请求的资源不存在";
-          break;
-        case 403:
-          errorMessage = "没有权限访问此资源";
+      switch (status) {
+        case 400:
+          console.error('❌ 400 - 请求参数错误');
+          ElMessage.error(data?.message || '请求参数错误');
           break;
         case 401:
-          errorMessage = "请先登录";
+          console.error('❌ 401 - 未授权访问');
+          ElMessage.error(data?.message || '请先登录');
+          // 可以在这里处理登录跳转
           break;
+        case 403:
+          console.error('❌ 403 - 禁止访问');
+          ElMessage.error(data?.message || '没有权限访问此资源');
+          break;
+        case 404:
+          console.error('❌ 404 - 资源不存在');
+          ElMessage.error(data?.message || '请求的资源不存在');
+          break;
+        case 500:
+          console.error('❌ 500 - 服务器内部错误');
+          ElMessage.error(data?.message || '服务器内部错误，请稍后重试');
+          break;
+        default:
+          console.error(`❌ ${status} - 未知错误`);
+          ElMessage.error(data?.message || `请求失败 (${status})`);
       }
-      
-      ElMessage.error(errorMessage);
-      return Promise.reject(new Error(errorMessage));
+    } else {
+      // 其他错误
+      console.error('❌ 未知错误类型');
+      ElMessage.error('请求失败，请稍后重试');
     }
-
-    const { code, msg, message } = responseData as any;
-    // 优先使用 msg，如果没有则使用 message，最后使用默认值
-    const errorMessage = msg || message || "请求失败";
-
-    console.log('🔍 错误响应详情:', {
-      status: response.status,
-      code,
-      msg,
-      message,
-      finalErrorMessage: errorMessage,
-      responseData
-    });
-
-    switch (code) {
-      case ResultEnum.ACCESS_TOKEN_INVALID:
-      case 401:
-        // Access Token 过期，尝试刷新
-        return refreshTokenAndRetry(config);
-
-      case ResultEnum.REFRESH_TOKEN_INVALID:
-      case 403:
-        // Refresh Token 过期，跳转登录页
-        await redirectToLogin("登录已过期，请重新登录");
-        return Promise.reject(new Error(errorMessage));
-
-      default:
-        // 直接显示后端返回的具体错误信息，不做额外处理
-        console.log('❌ 显示具体错误信息:', errorMessage);
-        ElMessage.error(errorMessage);
-        return Promise.reject(new Error(errorMessage));
-    }
+    
+    return Promise.reject(error);
   }
 );
 

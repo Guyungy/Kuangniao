@@ -268,8 +268,34 @@ router.post('/', [
       pay_method,
       pay_balance = 0,
       pay_scan = 0,
-      remark
+      remark,
+      discount_reason
     } = req.body;
+
+    // 如果前端发送的是amount字段，需要转换为pay_balance和pay_scan
+    let finalPayBalance = pay_balance;
+    let finalPayScan = pay_scan;
+    
+    // 优先使用前端发送的amount字段
+    if (req.body.amount !== undefined) {
+      const amount = parseFloat(req.body.amount);
+      console.log('前端发送的amount字段:', amount);
+      
+      if (pay_method === PayMethod.BALANCE) {
+        finalPayBalance = amount;
+        finalPayScan = 0;
+        console.log('余额支付，分配金额:', { finalPayBalance, finalPayScan });
+      } else if (pay_method === PayMethod.SCAN) {
+        finalPayBalance = 0;
+        finalPayScan = amount;
+        console.log('扫码支付，分配金额:', { finalPayBalance, finalPayScan });
+      } else if (pay_method === PayMethod.MIXED) {
+        // 混合支付，需要前端提供payBalance和payScan
+        console.log('混合支付，使用前端提供的金额');
+      }
+    } else {
+      console.log('前端未发送amount字段，使用pay_balance和pay_scan');
+    }
 
     // 检查会员是否存在且状态正常
     console.log('检查会员，ID:', member_id);
@@ -331,12 +357,23 @@ router.post('/', [
     const discountNum = parseFloat(discount);
     console.log('价格计算参数:', { durationNum, discountNum, workerPriceHour: worker.price_hour });
     const priceOrigin = Order.calculateOriginPrice(durationNum, worker.price_hour);
-    const priceFinal = Order.calculateFinalPrice(priceOrigin, discountNum);
+    
+    // 如果前端发送了amount字段，使用前端的价格作为实付金额
+    let priceFinal = priceOrigin;
+    if (req.body.amount) {
+      priceFinal = parseFloat(req.body.amount);
+      // 计算实际的优惠金额
+      const actualDiscount = priceOrigin - priceFinal;
+      console.log('前端价格调整:', { priceOrigin, priceFinal, actualDiscount });
+    } else {
+      priceFinal = Order.calculateFinalPrice(priceOrigin, discountNum);
+    }
+    
     console.log('价格计算结果:', { priceOrigin, priceFinal });
 
     // 验证支付金额
-    const payBalanceNum = parseFloat(pay_balance);
-    const payScanNum = parseFloat(pay_scan);
+    const payBalanceNum = parseFloat(finalPayBalance);
+    const payScanNum = parseFloat(finalPayScan);
     console.log('支付金额:', { payBalanceNum, payScanNum, pay_method });
     
     const tempOrder = new Order({
@@ -377,18 +414,22 @@ router.post('/', [
     }
     console.log('会员余额检查通过');
 
+    // 计算实际的优惠金额
+    const actualDiscount = priceOrigin - priceFinal;
+    
     // 创建订单
     const order = await Order.create({
       member_id,
       worker_id,
       duration: durationNum,
       price_origin: priceOrigin,
-      discount: discountNum,
+      discount: actualDiscount,
       price_final: priceFinal,
       pay_method,
       pay_balance: payBalanceNum,
       pay_scan: payScanNum,
-      remark
+      remark,
+      discount_reason
     }, { transaction });
 
     // 扣除会员余额（如果使用余额支付）

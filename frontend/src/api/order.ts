@@ -30,6 +30,7 @@ export interface OrderVO {
   startTime?: string;
   endTime?: string;
   remark?: string;
+  discountReason?: string; // 优惠原因
 }
 
 export interface OrderForm {
@@ -42,6 +43,7 @@ export interface OrderForm {
   payBalance?: number;
   payScan?: number;
   remark?: string;
+  discountReason?: string; // 优惠原因
 }
 
 export interface OrderStats {
@@ -99,7 +101,8 @@ function mapOrderFromBackend(item: any): OrderVO {
     createTime: item.created_at || item.createdAt || item.createTime || '',
     startTime: item.start_time || item.startTime || '',
     endTime: item.end_time || item.endTime || '',
-    remark: item.remark || ''
+    remark: item.remark || '',
+    discountReason: item.discount_reason || item.discountReason || ''
   };
   
   console.log('映射后的订单数据:', mappedData);
@@ -187,21 +190,31 @@ const OrderAPI = {
       worker_id: data.workerId,
       duration: data.serviceHours,
       pay_method: data.payMethod,
-      remark: data.remark
+      remark: data.remark,
+      // 直接发送amount字段，让后端处理支付金额分配
+      amount: data.amount
     };
 
-    // 根据支付方式添加相应的支付金额
+    // 根据支付方式设置支付方式
     if (data.payMethod === 'balance') {
-      backendData.pay_balance = data.amount;
-      backendData.pay_scan = 0;
+      backendData.pay_method = 'balance';
     } else if (data.payMethod === 'qrcode' || data.payMethod === 'scan') {
       backendData.pay_method = 'scan'; // 统一映射为后端期望的值
-      backendData.pay_balance = 0;
-      backendData.pay_scan = data.amount;
     } else if (data.payMethod === 'mixed') {
+      backendData.pay_method = 'mixed';
+      // 混合支付需要提供具体的支付金额
       backendData.pay_balance = data.payBalance || 0;
       backendData.pay_scan = data.payScan || 0;
     }
+
+    // 添加优惠原因
+    if (data.discountReason) {
+      backendData.discount_reason = data.discountReason;
+    }
+
+    // 计算优惠金额（原价 - 实付）
+    // 注意：这里需要前端传入原价，或者通过API获取打手单价计算
+    // 暂时不计算discount，让后端根据price_origin和price_final计算
 
     console.log('转换后的后端数据:', backendData);
 
@@ -239,10 +252,44 @@ const OrderAPI = {
 
   /** 更新订单 */
   update(id: string, data: OrderForm) {
+    // 转换参数名称以匹配后端API
+    const backendData: any = {
+      member_id: data.memberId,
+      worker_id: data.workerId,
+      duration: data.serviceHours,
+      pay_method: data.payMethod,
+      remark: data.remark,
+      // 直接发送amount字段，让后端处理支付金额分配
+      amount: data.amount
+    };
+
+    // 根据支付方式设置支付方式
+    if (data.payMethod === 'balance') {
+      backendData.pay_method = 'balance';
+    } else if (data.payMethod === 'qrcode' || data.payMethod === 'scan') {
+      backendData.pay_method = 'scan'; // 统一映射为后端期望的值
+    } else if (data.payMethod === 'mixed') {
+      backendData.pay_method = 'mixed';
+      // 混合支付需要提供具体的支付金额
+      backendData.pay_balance = data.payBalance || 0;
+      backendData.pay_scan = data.payScan || 0;
+    }
+
+    // 添加优惠原因
+    if (data.discountReason) {
+      backendData.discount_reason = data.discountReason;
+    }
+
+    console.log('更新订单API调用:', {
+      url: `${ORDER_BASE_URL}/${id}`,
+      data: backendData,
+      originalData: data
+    });
+
     return request({
       url: `${ORDER_BASE_URL}/${id}`,
       method: 'put',
-      data
+      data: backendData
     });
   },
 

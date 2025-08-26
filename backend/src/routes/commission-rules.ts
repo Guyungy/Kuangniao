@@ -18,13 +18,27 @@ router.get('/', [
   query('keyword').optional().isString().withMessage('搜索关键词必须是字符串')
 ], async (req: Request, res: Response): Promise<void> => {
   try {
+    console.log('🔍 开始获取分成规则列表');
+    console.log('📋 请求参数:', {
+      query: req.query,
+      headers: req.headers,
+      method: req.method,
+      url: req.url
+    });
+
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
+      console.log('❌ 参数验证失败:', errors.array());
       res.status(400).json({
         code: 'B0001',
         message: '参数验证失败',
         data: null,
-        errors: errors.array()
+        errors: errors.array(),
+        details: {
+          endpoint: '/api/v1/commission-rules',
+          method: 'GET',
+          timestamp: new Date().toISOString()
+        }
       });
       return;
     }
@@ -34,6 +48,8 @@ router.get('/', [
     const type = req.query.type as CommissionRuleType;
     const status = req.query.status as CommissionRuleStatus;
     const keyword = req.query.keyword as string;
+
+    console.log('📊 查询参数:', { page, limit, type, status, keyword });
 
     const offset = (page - 1) * limit;
     const where: any = {};
@@ -51,6 +67,8 @@ router.get('/', [
       where.name = { [Op.like]: `%${keyword}%` };
     }
 
+    console.log('🔍 数据库查询条件:', where);
+
     const { rows: rules, count: total } = await CommissionRule.findAndCountAll({
       where,
       include: [{
@@ -63,6 +81,8 @@ router.get('/', [
       order: [['priority', 'DESC'], ['created_at', 'DESC']]
     });
 
+    console.log('✅ 数据库查询成功:', { count: total, returned: rules.length });
+
     res.json({
       code: '00000',
       message: '获取分成规则列表成功',
@@ -74,14 +94,39 @@ router.get('/', [
           total,
           pages: Math.ceil(total / limit)
         }
+      },
+      details: {
+        endpoint: '/api/v1/commission-rules',
+        method: 'GET',
+        timestamp: new Date().toISOString(),
+        queryParams: { page, limit, type, status, keyword }
       }
     });
   } catch (error) {
-    console.error('获取分成规则列表错误:', error);
+    console.error('❌ 获取分成规则列表错误:', {
+      error: (error as Error).message,
+      stack: (error as Error).stack,
+      endpoint: '/api/v1/commission-rules',
+      method: 'GET',
+      timestamp: new Date().toISOString(),
+      requestInfo: {
+        query: req.query,
+        headers: req.headers,
+        url: req.url
+      }
+    });
+    
     res.status(500).json({
       code: 'B0001',
       message: '服务器内部错误',
-      data: null
+      data: null,
+      details: {
+        endpoint: '/api/v1/commission-rules',
+        method: 'GET',
+        timestamp: new Date().toISOString(),
+        error: (error as Error).message,
+        errorType: (error as Error).constructor.name
+      }
     });
   }
 });
