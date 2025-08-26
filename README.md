@@ -484,6 +484,36 @@ mysqldump -h 127.0.0.1 -P 3306 -uroot -proot --databases payboard > backup.sql
 - 首次导入未触发：执行 `docker compose down -v` 再 `up -d`。
 - Windows 挂载失败：在 Docker Desktop → Settings → Resources → File Sharing 中允许项目目录共享。
 
+### 仪表盘/报表接口说明（Dashboard/Report）
+
+- 今日概览 GET `/api/v1/reports/today-overview`
+  - 返回字段：
+    - `todayOrders` 今日订单数
+    - `todayRecharge` 今日充值数
+    - `todayMembers` 今日新增会员数
+    - `todayWorkers` 今日活跃打手数
+    - `todayIncome` 今日订单金额（流水口径）
+    - `todayTurnover` 今日总流水（订单金额汇总）
+    - `todayProfit` 今日总利润（流水 − 打手分成，分成按 custom > level > global）
+    - `platformBalance` 平台余额（预留）
+
+- 趋势数据 GET `/api/v1/reports/trends`
+  - 请求参数：`type=order|recharge`，`period=7d|30d|90d`，可选 `start_date`、`end_date`
+  - 特性：按日期补齐空数据为0，返回连续日期序列
+  - 返回字段（数组）：`date`，当 type=order 时 `orderCount/orderAmount`；type=recharge 时 `rechargeCount/rechargeAmount`
+
+- 支付方式分布 GET `/api/v1/reports/payment-stats`
+  - 请求参数：`type=order|recharge`，支持 `start_date`、`end_date`
+  - 返回字段：`method`，`amount`，`count`，`percentage`
+
+- 会员消费排行榜 GET `/api/v1/reports/member-ranking`
+  - 请求参数：`type=consume`，`limit`，支持 `start_date`、`end_date`
+  - 返回字段（数组）：`memberId`，`memberUsername`，`memberNickname`，`totalConsume`，`orderCount`
+
+- 打手收入排行榜 GET `/api/v1/reports/worker-ranking`
+  - 请求参数：`limit`，支持 `start_date`、`end_date`
+  - 返回字段（数组）：`workerId`，`workerName`，`workerPhone`，`workerType`，`totalIncome`，`orderCount`，`totalDuration`
+
 #### 登录失败/请求超时（10005ms）
 出现“登录失败”“请求超时（10005ms）”多数为后端端口未正常监听或前端代理目标与后端不一致。
 

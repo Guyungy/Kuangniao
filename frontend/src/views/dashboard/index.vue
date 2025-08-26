@@ -1,9 +1,50 @@
 <template>
   <div class="dashboard-container">
+    <!-- 今日核心KPI -->
+    <el-card shadow="never">
+      <el-row :gutter="10">
+        <el-col :xs="12" :sm="8" :md="4">
+          <div class="kpi-item">
+            <div class="kpi-title">今日营业额</div>
+            <div class="kpi-value">¥{{ kpi.todayTurnover.toFixed(2) }}</div>
+          </div>
+        </el-col>
+        <el-col :xs="12" :sm="8" :md="4">
+          <div class="kpi-item">
+            <div class="kpi-title">今日利润</div>
+            <div class="kpi-value">¥{{ kpi.todayProfit.toFixed(2) }}</div>
+          </div>
+        </el-col>
+        <el-col :xs="12" :sm="8" :md="4">
+          <div class="kpi-item">
+            <div class="kpi-title">今日订单数</div>
+            <div class="kpi-value">{{ kpi.todayOrders }}</div>
+          </div>
+        </el-col>
+        <el-col :xs="12" :sm="8" :md="4">
+          <div class="kpi-item">
+            <div class="kpi-title">今日客单价</div>
+            <div class="kpi-value">¥{{ kpi.todayOrders ? (kpi.todayTurnover / kpi.todayOrders).toFixed(2) : '0.00' }}</div>
+          </div>
+        </el-col>
+        <el-col :xs="12" :sm="8" :md="4">
+          <div class="kpi-item">
+            <div class="kpi-title">活跃打手</div>
+            <div class="kpi-value">{{ kpi.todayWorkers }}</div>
+          </div>
+        </el-col>
+        <el-col :xs="12" :sm="8" :md="4">
+          <div class="kpi-item">
+            <div class="kpi-title">新增会员</div>
+            <div class="kpi-value">{{ kpi.todayMembers }}</div>
+          </div>
+        </el-col>
+      </el-row>
+    </el-card>
     <!-- github 角标 -->
     <github-corner class="github-corner" />
 
-    <el-card shadow="never" class="mt-2">
+    <el-card v-if="false" shadow="never" class="mt-2">
       <div class="flex flex-wrap">
         <!-- 左侧问候语区域 -->
         <div class="flex-1 flex items-start">
@@ -115,7 +156,7 @@
     </el-card>
 
     <!-- 数据统计 -->
-    <el-row :gutter="10" class="mt-5">
+    <el-row v-if="false" :gutter="10" class="mt-5">
       <!-- 在线用户数量 -->
       <el-col :span="8" :xs="24" class="mb-xs-3">
         <el-card shadow="never" class="h-full flex flex-col">
@@ -271,7 +312,7 @@
       </el-col>
     </el-row>
 
-    <el-row :gutter="10" class="mt-5">
+    <el-row v-if="false" :gutter="10" class="mt-5">
       <!-- 访问趋势统计图 -->
       <el-col :xs="24" :span="16">
         <el-card>
@@ -354,6 +395,7 @@ defineOptions({
 });
 
 import { dayjs } from "element-plus";
+import ReportAPI from '@/api/report'
 // 日志API已移除，使用模拟数据
 // import LogAPI, { VisitStatsVO, VisitTrendVO } from "@/api/system/log-api";
 interface VisitStatsVO {
@@ -632,7 +674,23 @@ watch(
 // 组件挂载后加载访客统计数据和通知公告数据
 onMounted(() => {
   fetchVisitStatsData();
+  loadKPI();
 });
+
+// KPI 数据
+const kpi = reactive({ todayTurnover: 0, todayProfit: 0, todayOrders: 0, todayWorkers: 0, todayMembers: 0 })
+async function loadKPI() {
+  try {
+    const data = await ReportAPI.getDashboardStats()
+    kpi.todayTurnover = Number(data.todayTurnover || 0)
+    kpi.todayProfit = Number(data.todayProfit || 0)
+    kpi.todayOrders = Number(data.todayOrders || 0)
+    kpi.todayWorkers = Number(data.todayWorkers || 0)
+    kpi.todayMembers = Number(data.todayMembers || 0)
+  } catch (e) {
+    // 忽略，保持0
+  }
+}
 </script>
 
 <style lang="scss" scoped>
