@@ -24,6 +24,7 @@ export const constantRoutes: RouteRecordRaw[] = [
       { path: 'member', name: 'Member', component: () => import('@/views/member/index.vue'), meta: { title: '会员管理', icon: 'member', sort: 5 } },
       { path: 'recharge', name: 'Recharge', component: () => import('@/views/recharge/index.vue'), meta: { title: '充值管理', icon: 'recharge', sort: 6 } },
       { path: 'commission-rule', name: 'CommissionRule', component: () => import('@/views/commission-rule/index.vue'), meta: { title: '佣金规则', icon: 'commission-rule', sort: 7 } },
+      { path: 'product', name: 'Product', component: () => import('@/views/product/index.vue'), meta: { title: '商品管理', icon: 'product', sort: 7.5 } },
       // 数据与财务
       { path: 'report', name: 'Report', component: () => import('@/views/report/index.vue'), meta: { title: '数据报表', icon: 'report', sort: 8 } },
       // 简化：先用充值页面代替财务管理落地页，后续可替换为独立页面

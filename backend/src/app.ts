@@ -19,6 +19,7 @@ import roleRoutes from './routes/roles';
 import logRoutes from './routes/logs';
 import commissionRuleRoutes from './routes/commission-rules';
 import workerSettlementRoutes from './routes/worker-settlements';
+import productRoutes from './routes/products';
 
 // 加载环境变量
 dotenv.config();
@@ -137,6 +138,7 @@ app.use('/api/v1/reports', reportRoutes);
 app.use('/api/v1/logs', logRoutes);
 app.use('/api/v1/commission-rules', commissionRuleRoutes);
 app.use('/api/v1/worker-settlements', workerSettlementRoutes);
+app.use('/api/v1/products', productRoutes);
 
 // 404处理
 app.use('*', (req, res) => {

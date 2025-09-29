@@ -8,6 +8,7 @@ import { CommissionRule } from './CommissionRule';
 import { Role } from './Role';
 import { UserRoleModel } from './UserRole';
 import { WorkerSettlement } from './WorkerSettlement';
+import { Product } from './Product';
 
 // 数据库配置
 const sequelize = new Sequelize({
@@ -57,7 +58,8 @@ sequelize.addModels([
   CommissionRule,
   Role,
   UserRoleModel,
-  WorkerSettlement
+  WorkerSettlement,
+  Product
 ]);
 
 // 初始化模型
@@ -85,11 +87,12 @@ export const models = {
   CommissionRule,
   Role,
   UserRoleModel,
-  WorkerSettlement
+  WorkerSettlement,
+  Product
 };
 
 // 导出单个模型
-export { User, Worker, Order, Member, Recharge, CommissionRule, Role, UserRoleModel, WorkerSettlement };
+export { User, Worker, Order, Member, Recharge, CommissionRule, Role, UserRoleModel, WorkerSettlement, Product };
 
 // 导出类型
 export type ModelType = typeof models;
