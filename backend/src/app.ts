@@ -230,7 +230,7 @@ async function startServer() {
     if ((error as Error).message.includes('ECONNREFUSED')) {
       console.error('🔌 数据库连接被拒绝，请检查:');
       console.error('   1. MySQL服务是否正在运行');
-      console.error('   2. 数据库地址 192.168.50.17:3306 是否正确');
+      console.error('   2. 数据库地址 127.0.0.1:3306 是否正确');
       console.error('   3. 防火墙是否阻止了连接');
     } else if ((error as Error).message.includes('ER_ACCESS_DENIED_ERROR')) {
       console.error('🔐 数据库访问被拒绝，请检查:');

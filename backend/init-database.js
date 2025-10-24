@@ -4,7 +4,7 @@ const { Sequelize } = require('sequelize');
 // 数据库配置
 const sequelize = new Sequelize({
   dialect: 'mysql',
-  host: '192.168.50.17',
+  host: '127.0.0.1',
   port: 3306,
   username: 'root',
   password: '123456',

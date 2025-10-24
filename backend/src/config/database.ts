@@ -19,7 +19,7 @@ const sequelize = new Sequelize({
   database: 'payboard',
   username: 'root',
   password: '123456',
-  host: '192.168.50.17',
+  host: '127.0.0.1',
   port: 3306,
   dialect: 'mysql',
   timezone: '+08:00',

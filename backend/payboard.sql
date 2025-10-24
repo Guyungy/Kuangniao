@@ -1,10 +1,10 @@
 /*
  Navicat Premium Dump SQL
 
- Source Server         : 192.168.50.17
+ Source Server         : 127.0.0.1
  Source Server Type    : MySQL
  Source Server Version : 90400 (9.4.0)
- Source Host           : 192.168.50.17:3306
+ Source Host           : 127.0.0.1:3306
  Source Schema         : payboard
 
  Target Server Type    : MySQL

@@ -13,7 +13,7 @@ import { Product } from './Product';
 // 数据库配置
 const sequelize = new Sequelize({
   dialect: 'mysql',
-  host: process.env.DB_HOST || '192.168.50.17',
+  host: process.env.DB_HOST || '127.0.0.1',
   port: parseInt(process.env.DB_PORT || '3306'),
   username: process.env.DB_USER || 'root',
   password: process.env.DB_PASSWORD || '123456',
